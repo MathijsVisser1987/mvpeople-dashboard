@@ -2,7 +2,9 @@ import vincereService from './vincere.js';
 import eightByEightService from './eightByEight.js';
 import celebrationService from './celebrationService.js';
 import historyService from './historyService.js';
+import activityService from './activityService.js';
 import { teamMembers, calculatePoints, getMultiplier, computeBadges } from '../config/team.js';
+import { ACTIVITY_POINTS_MAP } from '../config/goals.js';
 
 // Cache to avoid hammering APIs
 let cache = {
@@ -89,6 +91,21 @@ async function getDealStats() {
   return { stats, scanComplete };
 }
 
+// Get activity stats from Vincere for all team members
+async function getActivityStats() {
+  if (!(await vincereService.isAuthenticated())) {
+    console.log('[Aggregator] Vincere not authenticated, skipping activity fetch');
+    return {};
+  }
+
+  try {
+    return await activityService.getAllTeamActivities();
+  } catch (err) {
+    console.error('[Aggregator] Activity fetch error:', err.message);
+    return {};
+  }
+}
+
 // Calculate streak from daily stats
 function calculateStreak(extension, dailyStats) {
   const dates = Object.keys(dailyStats).sort().reverse();
@@ -125,10 +142,11 @@ export async function buildLeaderboard() {
     return cache.leaderboard;
   }
 
-  const [callStats, dealResult, dailyStats] = await Promise.all([
+  const [callStats, dealResult, dailyStats, activityStats] = await Promise.all([
     getCallStats(),
     getDealStats(),
     getDailyCallStats(3),
+    getActivityStats(),
   ]);
 
   const dealStats = dealResult.stats;
@@ -144,6 +162,7 @@ export async function buildLeaderboard() {
   const leaderboard = teamMembers.map((member, index) => {
     const calls = callStats[member.extension] || {};
     const deals = dealStats[member.vincereId] || {};
+    const activities = activityStats[member.vincereId] || {};
     const streak = calculateStreak(member.extension, dailyStats);
     const maxDailyCalls = getMaxDailyCalls(member.extension, dailyStats);
 
@@ -152,7 +171,12 @@ export async function buildLeaderboard() {
     const dealsCount = deals.deals || 0;
     const pipelineValue = deals.pipelineValue || 0;
 
-    const points = calculatePoints(dealsCount, callsMade, talkTimeMinutes, streak);
+    // Activity points: subtract deal/placement-related category points to avoid double-counting
+    // Deals are already counted via the placement scan (dealsCount * POINTS_PER_DEAL)
+    const dealCategoryPoints = activities.byCategory?.DEALS_REVENUE?.points || 0;
+    const activityPointsNet = Math.max(0, (activities.activityPoints || 0) - dealCategoryPoints);
+
+    const points = calculatePoints(dealsCount, callsMade, talkTimeMinutes, streak, activityPointsNet);
     const multiplier = getMultiplier(streak);
 
     const badgeStats = {
@@ -182,6 +206,10 @@ export async function buildLeaderboard() {
       badges: computeBadges(badgeStats),
       hasCallData: !!callStats[member.extension],
       hasDealData: !!dealStats[member.vincereId]?.deals,
+      activities: activities.byCategory || {},
+      activityPoints: activityPointsNet,
+      totalActivities: activities.totalActivities || 0,
+      activityTypes: activities.byType || {},
     };
   });
 
@@ -199,6 +227,7 @@ export async function buildLeaderboard() {
       totalCalls: leaderboard.reduce((s, m) => s + m.calls, 0),
       totalPipeline: leaderboard.reduce((s, m) => s + m.pipelineValue, 0),
       totalTalkTime: leaderboard.reduce((s, m) => s + m.talkTimeMinutes, 0),
+      totalActivities: leaderboard.reduce((s, m) => s + m.totalActivities, 0),
     },
     celebrations,
     apiStatus: {

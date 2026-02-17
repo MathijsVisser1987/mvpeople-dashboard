@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { Settings, X, Eye, EyeOff, Target } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { Settings, X, Eye, EyeOff } from 'lucide-react';
 
 const WIDGET_LABELS = {
   teamStats: { name: 'Team KPIs', icon: '📊' },
@@ -10,137 +11,229 @@ const WIDGET_LABELS = {
   recentWins: { name: 'Recent Wins', icon: '🎉' },
   trendCharts: { name: 'Trend Charts', icon: '📈' },
   badges: { name: 'Badges', icon: '🏷️' },
+  activityBreakdown: { name: 'Activity Breakdown', icon: '🚀' },
   pointsBreakdown: { name: 'Points Breakdown', icon: '🔢' },
   activityFeed: { name: 'Activity Feed', icon: '📋' },
   apiStatus: { name: 'API Status', icon: '🔌' },
 };
 
-export default function SettingsPanel({ config, toggleWidget, setTargets }) {
-  const [open, setOpen] = useState(false);
+function PanelOverlay({ config, toggleWidget, setTargets, onClose }) {
   const [tab, setTab] = useState('widgets');
-  const [localTargets, setLocalTargets] = useState(config.targets);
+  const [localTargets, setLocalTargets] = useState(() => ({
+    deals: 30,
+    calls: 3000,
+    talkTime: 5000,
+    pipeline: 500000,
+    ...(config?.targets || {}),
+  }));
 
   const handleSaveTargets = () => {
-    setTargets(localTargets);
+    if (setTargets) setTargets(localTargets);
     setTab('widgets');
   };
 
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        className="p-2 rounded-lg bg-mvp-dark border border-mvp-border hover:border-mvp-accent/50 transition-colors"
-        title="Dashboard settings"
-      >
-        <Settings size={14} className="text-white/50" />
-      </button>
-    );
-  }
+  const widgets = config?.widgets || {};
 
   return (
-    <>
+    <div id="settings-root" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 99999 }}>
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/60 z-40" onClick={() => setOpen(false)} />
+      <div
+        onClick={onClose}
+        style={{
+          position: 'absolute',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.65)',
+        }}
+      />
 
-      {/* Panel */}
-      <div className="fixed right-0 top-0 h-full w-80 bg-mvp-card border-l border-mvp-border z-50 overflow-y-auto shadow-2xl">
-        <div className="sticky top-0 bg-mvp-card border-b border-mvp-border p-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold font-display">Settings</h2>
-          <button onClick={() => setOpen(false)} className="text-white/40 hover:text-white">
-            <X size={18} />
+      {/* Sidebar */}
+      <div
+        style={{
+          position: 'absolute',
+          right: 0, top: 0,
+          width: 320, height: '100%',
+          backgroundColor: '#0E2D6B',
+          overflowY: 'auto',
+          boxShadow: '-4px 0 30px rgba(0,0,0,0.5)',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
+        {/* Header */}
+        <div style={{
+          backgroundColor: '#0B245C',
+          borderBottom: '1px solid rgba(255,255,255,0.15)',
+          padding: '14px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexShrink: 0,
+        }}>
+          <span style={{ fontSize: 18, fontWeight: 700, color: '#ffffff', fontFamily: 'Montserrat, sans-serif' }}>
+            Settings
+          </span>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, lineHeight: 0 }}>
+            <X size={18} color="#ffffff" />
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-mvp-border">
-          {[
-            { id: 'widgets', label: 'Widgets' },
-            { id: 'targets', label: 'KPI Targets' },
-          ].map(t => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`flex-1 py-3 text-sm font-display font-semibold transition-colors ${
-                tab === t.id
-                  ? 'text-mvp-accent border-b-2 border-mvp-accent'
-                  : 'text-white/40 hover:text-white/60'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
+        <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.15)', flexShrink: 0 }}>
+          <button
+            onClick={() => setTab('widgets')}
+            style={{
+              flex: 1, padding: '12px 0', fontSize: 14, fontWeight: 600,
+              fontFamily: 'Montserrat, sans-serif',
+              background: 'none', border: 'none',
+              borderBottom: tab === 'widgets' ? '2px solid #59D6D6' : '2px solid transparent',
+              color: tab === 'widgets' ? '#59D6D6' : 'rgba(255,255,255,0.6)',
+              cursor: 'pointer',
+            }}
+          >
+            Widgets
+          </button>
+          <button
+            onClick={() => setTab('targets')}
+            style={{
+              flex: 1, padding: '12px 0', fontSize: 14, fontWeight: 600,
+              fontFamily: 'Montserrat, sans-serif',
+              background: 'none', border: 'none',
+              borderBottom: tab === 'targets' ? '2px solid #59D6D6' : '2px solid transparent',
+              color: tab === 'targets' ? '#59D6D6' : 'rgba(255,255,255,0.6)',
+              cursor: 'pointer',
+            }}
+          >
+            KPI Targets
+          </button>
         </div>
 
-        <div className="p-4">
-          {tab === 'widgets' && (
-            <div className="space-y-2">
-              <p className="text-xs text-white/30 font-body mb-3">
+        {/* Body */}
+        <div style={{ padding: 16, flex: 1 }}>
+          {tab === 'widgets' ? (
+            <>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 14, marginTop: 0 }}>
                 Toggle widgets on and off to customize your dashboard.
               </p>
               {Object.entries(WIDGET_LABELS).map(([id, label]) => {
-                const visible = config.widgets[id]?.visible !== false;
+                const visible = widgets[id]?.visible !== false;
                 return (
-                  <button
+                  <div
                     key={id}
-                    onClick={() => toggleWidget(id)}
-                    className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-colors ${
-                      visible
-                        ? 'border-mvp-accent/30 bg-mvp-accent/5'
-                        : 'border-mvp-border bg-mvp-dark/30'
-                    }`}
+                    onClick={() => toggleWidget && toggleWidget(id)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 12,
+                      padding: '10px 12px', marginBottom: 6, borderRadius: 8,
+                      border: visible ? '1px solid rgba(89,214,214,0.5)' : '1px solid rgba(255,255,255,0.15)',
+                      backgroundColor: visible ? 'rgba(89,214,214,0.12)' : 'rgba(255,255,255,0.05)',
+                      cursor: 'pointer',
+                    }}
                   >
-                    <span className="text-lg">{label.icon}</span>
-                    <span className="flex-1 text-left text-sm font-display font-semibold">{label.name}</span>
-                    {visible ? (
-                      <Eye size={16} className="text-mvp-accent" />
-                    ) : (
-                      <EyeOff size={16} className="text-white/20" />
-                    )}
-                  </button>
+                    <span style={{ fontSize: 16 }}>{label.icon}</span>
+                    <span style={{
+                      flex: 1, fontSize: 13, fontWeight: 600,
+                      color: visible ? '#ffffff' : 'rgba(255,255,255,0.5)',
+                      fontFamily: 'Montserrat, sans-serif',
+                    }}>
+                      {label.name}
+                    </span>
+                    {visible
+                      ? <Eye size={16} color="#59D6D6" />
+                      : <EyeOff size={16} color="rgba(255,255,255,0.3)" />
+                    }
+                  </div>
                 );
               })}
-            </div>
-          )}
-
-          {tab === 'targets' && (
-            <div className="space-y-4">
-              <p className="text-xs text-white/30 font-body mb-3">
-                Set monthly team KPI targets. These are used for progress bars and team target calculations.
+            </>
+          ) : (
+            <>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 14, marginTop: 0 }}>
+                Set monthly team KPI targets.
               </p>
-
               {[
-                { key: 'deals', label: 'Monthly Deal Target', icon: '🎯', suffix: 'deals' },
-                { key: 'calls', label: 'Monthly Call Target', icon: '📞', suffix: 'calls' },
-                { key: 'talkTime', label: 'Monthly Talk Time Target', icon: '🎙️', suffix: 'minutes' },
-                { key: 'pipeline', label: 'Monthly Pipeline Target', icon: '💰', suffix: 'EUR' },
+                { key: 'deals', label: 'Deal Target', icon: '🎯', suffix: 'deals' },
+                { key: 'calls', label: 'Call Target', icon: '📞', suffix: 'calls' },
+                { key: 'talkTime', label: 'Talk Time Target', icon: '🎙️', suffix: 'min' },
+                { key: 'pipeline', label: 'Pipeline Target', icon: '💰', suffix: 'EUR' },
               ].map(field => (
-                <div key={field.key}>
-                  <label className="text-sm font-display font-semibold text-white/60 flex items-center gap-2 mb-1.5">
-                    <span>{field.icon}</span>
-                    {field.label}
-                  </label>
-                  <div className="flex items-center gap-2">
+                <div key={field.key} style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: '#ffffff', marginBottom: 6 }}>
+                    {field.icon} {field.label}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <input
                       type="number"
-                      value={localTargets[field.key]}
+                      value={localTargets[field.key] ?? ''}
                       onChange={(e) => setLocalTargets(prev => ({ ...prev, [field.key]: parseInt(e.target.value) || 0 }))}
-                      className="flex-1 bg-mvp-dark border border-mvp-border rounded-lg px-3 py-2 text-white font-display text-sm focus:border-mvp-accent focus:outline-none"
+                      style={{
+                        flex: 1, borderRadius: 8, padding: '8px 12px',
+                        fontSize: 14, color: '#ffffff',
+                        backgroundColor: '#0B245C',
+                        border: '1px solid rgba(255,255,255,0.3)',
+                        outline: 'none', fontFamily: 'Montserrat, sans-serif',
+                      }}
                     />
-                    <span className="text-xs text-white/30 font-body w-14">{field.suffix}</span>
+                    <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', width: 40 }}>
+                      {field.suffix}
+                    </span>
                   </div>
                 </div>
               ))}
-
               <button
                 onClick={handleSaveTargets}
-                className="w-full mt-4 bg-mvp-accent/20 border border-mvp-accent/40 text-mvp-accent font-display font-semibold py-2.5 rounded-lg hover:bg-mvp-accent/30 transition-colors"
+                style={{
+                  width: '100%', marginTop: 8, padding: '10px 0',
+                  borderRadius: 8, border: 'none', cursor: 'pointer',
+                  backgroundColor: '#59D6D6', color: '#0B245C',
+                  fontSize: 14, fontWeight: 700,
+                  fontFamily: 'Montserrat, sans-serif',
+                }}
               >
                 Save Targets
               </button>
-            </div>
+            </>
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+export default function SettingsPanel({ config, toggleWidget, setTargets }) {
+  const [open, setOpen] = useState(false);
+
+  // Lock body scroll when panel is open
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [open]);
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        style={{
+          padding: 8, borderRadius: 8, cursor: 'pointer',
+          backgroundColor: '#0B245C', border: '1px solid #163478',
+          display: 'flex', alignItems: 'center', lineHeight: 0,
+        }}
+        title="Dashboard settings"
+      >
+        <Settings size={14} color="rgba(255,255,255,0.5)" />
+      </button>
+
+      {open && createPortal(
+        <PanelOverlay
+          config={config}
+          toggleWidget={toggleWidget}
+          setTargets={setTargets}
+          onClose={() => setOpen(false)}
+        />,
+        document.body
+      )}
     </>
   );
 }

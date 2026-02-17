@@ -50,47 +50,55 @@ class VincereService {
     this.accessToken = null;
     this.refreshToken = null;
     this.tokenExpiry = null;
-    this._tokensLoaded = false;
+    this._loadPromise = null;
   }
 
   // --- Token persistence ---
 
   async _loadTokens() {
-    if (this._tokensLoaded) return;
-    this._tokensLoaded = true;
+    // Use promise-based guard so concurrent callers all await the same load
+    if (this._loadPromise) return this._loadPromise;
+    this._loadPromise = this._doLoadTokens();
+    return this._loadPromise;
+  }
 
-    const store = await getRedis();
-    if (store) {
-      try {
-        const data = await store.get(KV_KEY);
-        if (data) {
-          const parsed = typeof data === 'string' ? JSON.parse(data) : data;
-          this.idToken = parsed.idToken || null;
-          this.accessToken = parsed.accessToken || null;
-          this.refreshToken = parsed.refreshToken || null;
-          this.tokenExpiry = parsed.tokenExpiry ? new Date(parsed.tokenExpiry) : null;
-          console.log('[Vincere] Loaded tokens from Redis');
-          return;
+  async _doLoadTokens() {
+    try {
+      const store = await getRedis();
+      if (store) {
+        try {
+          const data = await store.get(KV_KEY);
+          if (data) {
+            const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+            this.idToken = parsed.idToken || null;
+            this.accessToken = parsed.accessToken || null;
+            this.refreshToken = parsed.refreshToken || null;
+            this.tokenExpiry = parsed.tokenExpiry ? new Date(parsed.tokenExpiry) : null;
+            console.log('[Vincere] Loaded tokens from Redis');
+            return;
+          }
+        } catch (err) {
+          console.log('[Vincere] Redis load error:', err.message);
         }
-      } catch (err) {
-        console.log('[Vincere] Redis load error:', err.message);
       }
-    }
 
-    const filePath = await getFsPath();
-    if (filePath && fs) {
-      try {
-        if (fs.existsSync(filePath)) {
-          const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-          this.idToken = data.idToken || null;
-          this.accessToken = data.accessToken || null;
-          this.refreshToken = data.refreshToken || null;
-          this.tokenExpiry = data.tokenExpiry ? new Date(data.tokenExpiry) : null;
-          console.log('[Vincere] Loaded tokens from file');
+      const filePath = await getFsPath();
+      if (filePath && fs) {
+        try {
+          if (fs.existsSync(filePath)) {
+            const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+            this.idToken = data.idToken || null;
+            this.accessToken = data.accessToken || null;
+            this.refreshToken = data.refreshToken || null;
+            this.tokenExpiry = data.tokenExpiry ? new Date(data.tokenExpiry) : null;
+            console.log('[Vincere] Loaded tokens from file');
+          }
+        } catch {
+          console.log('[Vincere] No saved tokens found');
         }
-      } catch {
-        console.log('[Vincere] No saved tokens found');
       }
+    } finally {
+      // Don't clear _loadPromise — Vincere tokens persist for the lifetime of the instance
     }
   }
 
@@ -238,6 +246,53 @@ class VincereService {
 
       return res.json();
     }
+  }
+
+  async _apiPost(endpoint, body = {}, params = {}, retries = 3) {
+    await this.ensureValidToken();
+
+    const url = new URL(`${this.apiBase}${endpoint}`);
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null) url.searchParams.set(k, v);
+    });
+
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'id-token': this.idToken,
+          'x-api-key': this.apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (res.status === 429 && attempt < retries) {
+        const delay = Math.pow(2, attempt + 1) * 1000;
+        console.log(`[Vincere] Rate limited on POST ${endpoint}, retrying in ${delay}ms...`);
+        await new Promise(r => setTimeout(r, delay));
+        continue;
+      }
+
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(`Vincere API POST ${res.status} ${endpoint}: ${err}`);
+      }
+
+      return res.json();
+    }
+  }
+
+  // Fetch activities for a date range (global endpoint, no per-user filter available)
+  // Dates must be full ISO datetime strings (e.g. "2026-02-01T00:00:00.000Z")
+  async getActivities(startDate, endDate, page = 0) {
+    // Ensure full ISO datetime format
+    const startISO = startDate.includes('T') ? startDate : `${startDate}T00:00:00.000Z`;
+    const endISO = endDate.includes('T') ? endDate : `${endDate}T23:59:59.999Z`;
+    return this._apiPost('/activities', {
+      created_date_from: startISO,
+      created_date_to: endISO,
+    }, { index: page });
   }
 
   // --- Placement/Deal fetching ---

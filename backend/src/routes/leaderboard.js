@@ -26,10 +26,25 @@ router.get('/badges', (req, res) => {
   res.json(badges);
 });
 
+// GET /api/leaderboard/activities - Activity breakdown for custom date range
+router.get('/activities', async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    if (!startDate || !endDate) {
+      return res.status(400).json({ error: 'startDate and endDate query params required (YYYY-MM-DD)' });
+    }
+    const activityService = (await import('../services/activityService.js')).default;
+    const data = await activityService.getTeamActivitiesForRange(startDate, endDate);
+    res.json({ startDate, endDate, data });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/leaderboard/refresh - Force refresh cached data (including Vincere deal cache)
 router.post('/refresh', async (req, res) => {
   clearCache();
-  // Also clear KV deal cache
+  // Also clear KV caches
   try {
     if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
       const { Redis } = await import('@upstash/redis');
@@ -38,6 +53,7 @@ router.post('/refresh', async (req, res) => {
       await redis.del('vincere-deals-scan');
       await redis.del('celebrations');
       await redis.del('vincere-deals-snapshot');
+      await redis.del('vincere-activities-cache');
     }
   } catch {}
   try {

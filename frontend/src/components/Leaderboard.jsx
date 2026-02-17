@@ -99,6 +99,22 @@ function MemberRow({ member, rank }) {
               <span className="text-xs text-white/30">+{member.badges.length - 4}</span>
             )}
           </div>
+          {/* Activity category chips */}
+          {member.activities && Object.values(member.activities).some(c => c.count > 0) && (
+            <div className="flex gap-1 mt-0.5">
+              {Object.entries(member.activities)
+                .filter(([, cat]) => cat.count > 0)
+                .map(([key, cat]) => (
+                  <span
+                    key={key}
+                    className="text-[10px] px-1.5 py-0.5 rounded bg-mvp-dark border border-mvp-border"
+                    title={`${cat.label}: ${cat.count} activities`}
+                  >
+                    {cat.emoji} {cat.count}
+                  </span>
+                ))}
+            </div>
+          )}
         </div>
 
         {/* Stats */}

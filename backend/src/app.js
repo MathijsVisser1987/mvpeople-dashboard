@@ -265,6 +265,126 @@ app.get('/api/debug/users', async (req, res) => {
   }
 });
 
+// Debug: discover Vincere activities API response format
+app.get('/api/debug/activities/:userId', async (req, res) => {
+  try {
+    const isAuth = await vincereService.isAuthenticated();
+    if (!isAuth) return res.json({ error: 'Not authenticated' });
+
+    const userId = parseInt(req.params.userId);
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    // Full ISO datetime format (the API rejected date-only strings)
+    const startISO = startOfMonth.toISOString();
+    const endISO = now.toISOString();
+
+    const attempts = {};
+
+    // Attempt 1: POST /activities with full ISO datetime
+    try {
+      const data = await vincereService._apiPost('/activities', {
+        created_date_from: startISO,
+        created_date_to: endISO,
+      }, { index: 0 });
+      const items = data?.result?.items || [];
+      attempts.iso_datetime = {
+        total: data?.result?.total ?? null,
+        itemCount: items.length,
+        topKeys: data ? Object.keys(data) : null,
+        firstItemKeys: items[0] ? Object.keys(items[0]) : null,
+        firstItem: items[0] ?? null,
+        secondItem: items[1] ?? null,
+      };
+    } catch (err) {
+      attempts.iso_datetime = { error: err.message };
+    }
+
+    // Attempt 2: POST /activities with epoch milliseconds
+    try {
+      const data = await vincereService._apiPost('/activities', {
+        created_date_from: startOfMonth.getTime(),
+        created_date_to: now.getTime(),
+      }, { index: 0 });
+      const items = data?.result?.items || [];
+      attempts.epoch_ms = {
+        total: data?.result?.total ?? null,
+        itemCount: items.length,
+        firstItemKeys: items[0] ? Object.keys(items[0]) : null,
+        firstItem: items[0] ?? null,
+      };
+    } catch (err) {
+      attempts.epoch_ms = { error: err.message };
+    }
+
+    // Attempt 3: POST /activities with "YYYY-MM-DDT00:00:00.000Z" format
+    try {
+      const startFmt = startOfMonth.toISOString().replace(/\.\d{3}Z$/, '.000Z');
+      const endFmt = now.toISOString().replace(/\.\d{3}Z$/, '.000Z');
+      const data = await vincereService._apiPost('/activities', {
+        created_date_from: startFmt,
+        created_date_to: endFmt,
+      }, { index: 0 });
+      const items = data?.result?.items || [];
+      attempts.iso_explicit = {
+        total: data?.result?.total ?? null,
+        itemCount: items.length,
+        firstItemKeys: items[0] ? Object.keys(items[0]) : null,
+        firstItem: items[0] ?? null,
+      };
+    } catch (err) {
+      attempts.iso_explicit = { error: err.message };
+    }
+
+    // Attempt 4: Try a broader date range (last 6 months) to find actual data
+    try {
+      const sixMonthsAgo = new Date(now);
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+      const data = await vincereService._apiPost('/activities', {
+        created_date_from: sixMonthsAgo.toISOString(),
+        created_date_to: now.toISOString(),
+      }, { index: 0 });
+      const items = data?.content || data?.result?.items || [];
+      attempts.broader_range = {
+        dateRange: `${sixMonthsAgo.toISOString()} to ${now.toISOString()}`,
+        responseKeys: data ? Object.keys(data) : null,
+        contentLength: items.length,
+        sliceIndex: data?.slice_index,
+        numElements: data?.num_of_elements,
+        isLast: data?.last,
+        firstItemKeys: items[0] ? Object.keys(items[0]) : null,
+        firstItem: items[0] ?? null,
+        secondItem: items[1] ?? null,
+        thirdItem: items[2] ?? null,
+      };
+    } catch (err) {
+      attempts.broader_range = { error: err.message };
+    }
+
+    // Attempt 5: Try ALL time (no date filter or very old start)
+    try {
+      const veryOld = new Date('2020-01-01T00:00:00.000Z');
+      const data = await vincereService._apiPost('/activities', {
+        created_date_from: veryOld.toISOString(),
+        created_date_to: now.toISOString(),
+      }, { index: 0 });
+      const items = data?.content || [];
+      attempts.all_time = {
+        contentLength: items.length,
+        numElements: data?.num_of_elements,
+        isLast: data?.last,
+        firstItemKeys: items[0] ? Object.keys(items[0]) : null,
+        firstItem: items[0] ?? null,
+      };
+    } catch (err) {
+      attempts.all_time = { error: err.message };
+    }
+
+    res.json({ userId, startISO, endISO, attempts });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Debug: test 8x8 auth and data fetch
 app.get('/api/debug/8x8', async (req, res) => {
   const eightByEightService = (await import('./services/eightByEight.js')).default;

@@ -36,30 +36,40 @@ class EightByEightService {
 
     this.accessToken = null;
     this.tokenExpiry = null;
-    this._tokensLoaded = false;
+    this._loadPromise = null;
   }
 
   async _loadTokens() {
-    if (this._tokensLoaded) return;
-    this._tokensLoaded = true;
+    // Skip if we already have a valid in-memory token
+    if (this.isAuthenticated()) return;
+    // Use promise-based guard so concurrent callers all await the same load
+    if (this._loadPromise) return this._loadPromise;
+    this._loadPromise = this._doLoadTokens();
+    return this._loadPromise;
+  }
 
-    const store = await getRedis();
-    if (store) {
-      try {
-        const data = await store.get(KV_KEY_8X8);
-        if (data) {
-          const parsed = typeof data === 'string' ? JSON.parse(data) : data;
-          if (parsed.tokenExpiry && new Date(parsed.tokenExpiry).getTime() > Date.now()) {
-            this.accessToken = parsed.accessToken || null;
-            this.tokenExpiry = new Date(parsed.tokenExpiry);
-            console.log('[8x8] Loaded tokens from Redis (valid until', this.tokenExpiry.toISOString(), ')');
-          } else {
-            console.log('[8x8] Redis tokens expired, need re-auth');
+  async _doLoadTokens() {
+    try {
+      const store = await getRedis();
+      if (store) {
+        try {
+          const data = await store.get(KV_KEY_8X8);
+          if (data) {
+            const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+            if (parsed.tokenExpiry && new Date(parsed.tokenExpiry).getTime() > Date.now()) {
+              this.accessToken = parsed.accessToken || null;
+              this.tokenExpiry = new Date(parsed.tokenExpiry);
+              console.log('[8x8] Loaded tokens from Redis (valid until', this.tokenExpiry.toISOString(), ')');
+            } else {
+              console.log('[8x8] Redis tokens expired, need re-auth');
+            }
           }
+        } catch (err) {
+          console.log('[8x8] Redis load error:', err.message);
         }
-      } catch (err) {
-        console.log('[8x8] Redis load error:', err.message);
       }
+    } finally {
+      this._loadPromise = null; // Allow future reloads when token expires
     }
   }
 
@@ -119,7 +129,9 @@ class EightByEightService {
   }
 
   isAuthenticated() {
-    return !!(this.accessToken && this.tokenExpiry && Date.now() < this.tokenExpiry.getTime());
+    // 2-minute buffer before expiry to prevent mid-request token expiration
+    return !!(this.accessToken && this.tokenExpiry &&
+      Date.now() < this.tokenExpiry.getTime() - 2 * 60 * 1000);
   }
 
   async ensureAuthenticated() {
@@ -162,6 +174,7 @@ class EightByEightService {
     ];
 
     let lastError;
+    let retried = false;
     for (const url of urls) {
       try {
         const res = await fetch(url, {
@@ -170,6 +183,31 @@ class EightByEightService {
             '8x8-apikey': this.apiKey,
           },
         });
+
+        // On 401, re-authenticate and retry once
+        if (res.status === 401 && !retried) {
+          retried = true;
+          console.log('[8x8] Got 401, re-authenticating...');
+          const username = process.env.EIGHT_BY_EIGHT_USERNAME;
+          const password = process.env.EIGHT_BY_EIGHT_PASSWORD;
+          if (username && password) {
+            await this.authenticate(username, password);
+            // Retry this URL with new token
+            const retryRes = await fetch(url, {
+              headers: {
+                'Authorization': `Bearer ${this.accessToken}`,
+                '8x8-apikey': this.apiKey,
+              },
+            });
+            if (retryRes.ok) {
+              const data = await retryRes.json();
+              console.log(`[8x8] Extension summary fetched after re-auth - ${Array.isArray(data) ? data.length : 0} extensions`);
+              return data;
+            }
+          }
+          lastError = `401: Unauthorized (re-auth failed)`;
+          continue;
+        }
 
         if (!res.ok) {
           lastError = `${res.status}: ${await res.text()}`;

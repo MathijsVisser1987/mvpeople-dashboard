@@ -1,4 +1,4 @@
-import { RefreshCw, Zap, Tv } from 'lucide-react';
+import { RefreshCw, Zap, Tv, BarChart3 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function Header({ usingMock, apiStatus, lastUpdated, onRefresh, settingsPanel }) {
@@ -33,6 +33,15 @@ export default function Header({ usingMock, apiStatus, lastUpdated, onRefresh, s
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Reports link */}
+            <Link
+              to="/reports"
+              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-display text-white/40 hover:text-white hover:bg-mvp-dark transition-colors border border-transparent hover:border-mvp-border"
+            >
+              <BarChart3 size={13} />
+              Reports
+            </Link>
+
             {/* TV mode link */}
             <Link
               to="/tv"

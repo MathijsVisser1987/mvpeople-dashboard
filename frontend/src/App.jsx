@@ -13,8 +13,10 @@ import RecentWins from './components/RecentWins';
 import LeaguesWidget from './components/LeaguesWidget';
 import MissionsWidget from './components/MissionsWidget';
 import TrendChartsWidget from './components/TrendChartsWidget';
+import ActivityBreakdown from './components/ActivityBreakdown';
 import SettingsPanel from './components/SettingsPanel';
 import TVSlideshow from './pages/TVSlideshow';
+import Reports from './pages/Reports';
 
 function Dashboard() {
   const { data, loading, usingMock, refresh } = useLeaderboard();
@@ -52,6 +54,7 @@ function Dashboard() {
               <Leaderboard members={leaderboard} loading={loading} />
             )}
             {isVisible('leagues') && <LeaguesWidget />}
+            {isVisible('activityBreakdown') && <ActivityBreakdown members={leaderboard} />}
             {isVisible('trendCharts') && <TrendChartsWidget />}
             {isVisible('badges') && <BadgeShowcase members={leaderboard} />}
           </div>
@@ -82,6 +85,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Dashboard />} />
+      <Route path="/reports" element={<Reports />} />
       <Route path="/tv" element={<TVSlideshow />} />
     </Routes>
   );

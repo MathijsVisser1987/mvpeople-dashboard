@@ -12,9 +12,10 @@ const DEFAULT_CONFIG = {
     recentWins: { visible: true, order: 5 },
     trendCharts: { visible: true, order: 6 },
     badges: { visible: true, order: 7 },
-    pointsBreakdown: { visible: false, order: 8 },
-    activityFeed: { visible: false, order: 9 },
-    apiStatus: { visible: false, order: 10 },
+    activityBreakdown: { visible: true, order: 8 },
+    pointsBreakdown: { visible: false, order: 9 },
+    activityFeed: { visible: false, order: 10 },
+    apiStatus: { visible: false, order: 11 },
   },
   targets: {
     deals: 30,

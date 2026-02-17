@@ -1,4 +1,4 @@
-import { TrendingUp, Phone, Briefcase, Clock, Loader2 } from 'lucide-react';
+import { TrendingUp, Phone, Briefcase, Clock, Activity, Loader2 } from 'lucide-react';
 import { formatCurrency, formatNumber, formatTalkTime } from '../utils/formatters';
 
 export default function TeamStats({ stats, loading, targets }) {
@@ -47,10 +47,21 @@ export default function TeamStats({ stats, loading, targets }) {
       borderColor: 'border-mvp-fire/20',
       barColor: '#ff6b35',
     },
+    {
+      label: 'Activities',
+      value: stats?.totalActivities || 0,
+      target: targets?.activities || 500,
+      format: formatNumber,
+      icon: Activity,
+      color: 'text-purple-400',
+      bgColor: 'bg-purple-400/10',
+      borderColor: 'border-purple-400/20',
+      barColor: '#a855f7',
+    },
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
       {items.map((stat) => {
         const pct = stat.target > 0 ? Math.min((stat.value / stat.target) * 100, 100) : 0;
         return (
