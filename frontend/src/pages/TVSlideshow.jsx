@@ -1,0 +1,111 @@
+import { useState, useEffect } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { useLeaderboard } from '../hooks/useLeaderboard';
+import { useCelebrations } from '../hooks/useCelebrations';
+import TVHeader from '../components/tv/TVHeader';
+import LeaderboardSlide from '../components/tv/LeaderboardSlide';
+import TopPerformerSlide from '../components/tv/TopPerformerSlide';
+import CompetitionSlide from '../components/tv/CompetitionSlide';
+import RecentWinsSlide from '../components/tv/RecentWinsSlide';
+import TeamTargetsSlide from '../components/tv/TeamTargetsSlide';
+import CelebrationOverlay from '../components/tv/CelebrationOverlay';
+
+const SLIDE_DURATION = 12000; // 12 seconds per slide
+
+export default function TVSlideshow() {
+  const { data } = useLeaderboard();
+  const { celebrations, unseen, markSeen } = useCelebrations();
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [showCelebration, setShowCelebration] = useState(null);
+
+  const leaderboard = data?.leaderboard || [];
+  const teamStats = data?.teamStats || {};
+
+  const slides = ['leaderboard', 'top-performer', 'competition', 'recent-wins', 'team-targets'];
+
+  // Add tv-mode class to body
+  useEffect(() => {
+    document.body.classList.add('tv-mode');
+    return () => document.body.classList.remove('tv-mode');
+  }, []);
+
+  // Auto-rotate slides
+  useEffect(() => {
+    if (showCelebration) return; // Pause rotation during celebration
+    const timer = setInterval(() => {
+      setCurrentSlide(prev => (prev + 1) % slides.length);
+    }, SLIDE_DURATION);
+    return () => clearInterval(timer);
+  }, [slides.length, showCelebration]);
+
+  // Handle unseen celebrations
+  useEffect(() => {
+    if (unseen.length > 0 && !showCelebration) {
+      const cel = unseen[0];
+      setShowCelebration(cel);
+      markSeen([cel.id]);
+      const timer = setTimeout(() => setShowCelebration(null), 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [unseen, showCelebration, markSeen]);
+
+  const renderSlide = () => {
+    switch (slides[currentSlide]) {
+      case 'leaderboard':
+        return <LeaderboardSlide members={leaderboard} />;
+      case 'top-performer':
+        return <TopPerformerSlide member={leaderboard[0]} />;
+      case 'competition':
+        return <CompetitionSlide members={leaderboard} />;
+      case 'recent-wins':
+        return <RecentWinsSlide celebrations={celebrations} />;
+      case 'team-targets':
+        return <TeamTargetsSlide stats={teamStats} members={leaderboard} />;
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-mvp-dark overflow-hidden flex flex-col">
+      <TVHeader currentSlide={currentSlide} totalSlides={slides.length} />
+
+      <div className="flex-1 relative">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentSlide}
+            initial={{ opacity: 0, x: 40 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -40 }}
+            transition={{ duration: 0.5 }}
+            className="absolute inset-0 flex items-center justify-center p-8"
+          >
+            {renderSlide()}
+          </motion.div>
+        </AnimatePresence>
+      </div>
+
+      {/* Slide indicators */}
+      <div className="flex justify-center gap-2 pb-6">
+        {slides.map((_, i) => (
+          <div
+            key={i}
+            className={`h-1.5 rounded-full transition-all duration-500 ${
+              i === currentSlide ? 'w-8 bg-mvp-accent' : 'w-3 bg-mvp-border'
+            }`}
+          />
+        ))}
+      </div>
+
+      {/* Celebration overlay */}
+      <AnimatePresence>
+        {showCelebration && (
+          <CelebrationOverlay
+            celebration={showCelebration}
+            onDismiss={() => setShowCelebration(null)}
+          />
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}

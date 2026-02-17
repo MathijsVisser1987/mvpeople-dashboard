@@ -8,7 +8,7 @@ function generateActivities(members) {
   const iconMap = {
     deal: { icon: Briefcase, color: 'text-mvp-success' },
     badge: { icon: Award, color: 'text-mvp-accent' },
-    calls: { icon: Phone, color: 'text-mvp-electric' },
+    calls: { icon: Phone, color: 'text-mvp-accent' },
     streak: { icon: Flame, color: 'text-mvp-fire' },
   };
 
@@ -64,12 +64,12 @@ export default function ActivityFeed({ members }) {
     <div className="bg-mvp-card rounded-xl border border-mvp-border p-5">
       <div className="flex items-center gap-2 mb-4">
         <Bell size={18} className="text-mvp-warning" />
-        <h2 className="text-lg font-bold">Activity Feed</h2>
+        <h2 className="text-lg font-bold font-display">Activity Feed</h2>
       </div>
 
       <div className="space-y-3">
         {activities.length === 0 ? (
-          <p className="text-sm text-white/30 text-center py-4">No activity yet</p>
+          <p className="text-sm text-white/30 text-center py-4 font-body">No activity yet</p>
         ) : (
           activities.map((activity, i) => (
             <div
@@ -80,8 +80,8 @@ export default function ActivityFeed({ members }) {
                 <activity.icon size={16} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm">
-                  <span className="font-semibold text-white">{activity.name}</span>{' '}
+                <p className="text-sm font-body">
+                  <span className="font-semibold text-white font-display">{activity.name}</span>{' '}
                   <span className="text-white/50">{activity.message}</span>
                 </p>
               </div>

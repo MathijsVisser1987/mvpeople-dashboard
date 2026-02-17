@@ -3,6 +3,28 @@
 // Auth: POST /analytics/work/v1/oauth/token
 // Data: GET  /analytics/work/v2/extsum
 
+// Token persistence via Upstash Redis (same as vincere.js)
+let redis = null;
+
+async function getRedis() {
+  if (redis) return redis;
+  try {
+    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+      const { Redis } = await import('@upstash/redis');
+      redis = new Redis({
+        url: process.env.KV_REST_API_URL,
+        token: process.env.KV_REST_API_TOKEN,
+      });
+      return redis;
+    }
+  } catch {
+    // @upstash/redis not available
+  }
+  return null;
+}
+
+const KV_KEY_8X8 = '8x8-tokens';
+
 class EightByEightService {
   constructor() {
     const region = process.env.EIGHT_BY_EIGHT_REGION || 'eu';
@@ -14,6 +36,48 @@ class EightByEightService {
 
     this.accessToken = null;
     this.tokenExpiry = null;
+    this._tokensLoaded = false;
+  }
+
+  async _loadTokens() {
+    if (this._tokensLoaded) return;
+    this._tokensLoaded = true;
+
+    const store = await getRedis();
+    if (store) {
+      try {
+        const data = await store.get(KV_KEY_8X8);
+        if (data) {
+          const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+          if (parsed.tokenExpiry && new Date(parsed.tokenExpiry).getTime() > Date.now()) {
+            this.accessToken = parsed.accessToken || null;
+            this.tokenExpiry = new Date(parsed.tokenExpiry);
+            console.log('[8x8] Loaded tokens from Redis (valid until', this.tokenExpiry.toISOString(), ')');
+          } else {
+            console.log('[8x8] Redis tokens expired, need re-auth');
+          }
+        }
+      } catch (err) {
+        console.log('[8x8] Redis load error:', err.message);
+      }
+    }
+  }
+
+  async _saveTokens() {
+    const data = {
+      accessToken: this.accessToken,
+      tokenExpiry: this.tokenExpiry?.toISOString(),
+    };
+
+    const store = await getRedis();
+    if (store) {
+      try {
+        await store.set(KV_KEY_8X8, JSON.stringify(data));
+        console.log('[8x8] Tokens saved to Redis');
+      } catch (err) {
+        console.log('[8x8] Redis save error:', err.message);
+      }
+    }
   }
 
   async authenticate(username, password) {
@@ -44,6 +108,7 @@ class EightByEightService {
         const data = await res.json();
         this.accessToken = data.access_token;
         this.tokenExpiry = new Date(Date.now() + (data.expires_in || 1800) * 1000);
+        await this._saveTokens();
         console.log(`[8x8] Authenticated via ${url}`);
         return data;
       } catch (err) {
@@ -53,51 +118,14 @@ class EightByEightService {
     throw new Error(`8x8 authentication failed: ${lastError}`);
   }
 
-  async authenticateWithApiKey() {
-    // Some 8x8 setups allow API key + secret auth without username/password
-    const urls = [
-      `${this.baseUrl}/analytics/work/v1/oauth/token`,
-      `https://api.8x8.com/analytics/work/v1/oauth/token`,
-    ];
-
-    let lastError;
-    for (const url of urls) {
-      try {
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: {
-            '8x8-apikey': this.apiKey,
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: new URLSearchParams({
-            grant_type: 'client_credentials',
-            client_id: this.apiKey,
-            client_secret: this.secret,
-          }),
-        });
-
-        if (!res.ok) {
-          lastError = `${res.status}: ${await res.text()}`;
-          continue;
-        }
-
-        const data = await res.json();
-        this.accessToken = data.access_token;
-        this.tokenExpiry = new Date(Date.now() + (data.expires_in || 1800) * 1000);
-        console.log(`[8x8] Authenticated via API key at ${url}`);
-        return data;
-      } catch (err) {
-        lastError = err.message;
-      }
-    }
-    throw new Error(`8x8 API key auth failed: ${lastError}`);
-  }
-
   isAuthenticated() {
     return !!(this.accessToken && this.tokenExpiry && Date.now() < this.tokenExpiry.getTime());
   }
 
   async ensureAuthenticated() {
+    // Try loading persisted tokens from KV first
+    await this._loadTokens();
+
     if (!this.isAuthenticated()) {
       // Try auto-auth from env vars (useful for serverless cold starts)
       const username = process.env.EIGHT_BY_EIGHT_USERNAME;

@@ -39,7 +39,12 @@ router.get('/vincere/callback', async (req, res) => {
 // --- 8x8 Auth ---
 
 // GET /api/auth/8x8/status
-router.get('/8x8/status', (req, res) => {
+router.get('/8x8/status', async (req, res) => {
+  try {
+    await eightByEightService.ensureAuthenticated();
+  } catch {
+    // Auto-auth failed or no credentials
+  }
   res.json({
     authenticated: eightByEightService.isAuthenticated(),
     pbxId: process.env.EIGHT_BY_EIGHT_PBX_ID,
@@ -77,6 +82,11 @@ router.post('/8x8/login-apikey', async (req, res) => {
 
 // GET /api/auth/status
 router.get('/status', async (req, res) => {
+  try {
+    await eightByEightService.ensureAuthenticated();
+  } catch {
+    // Auto-auth failed or no credentials
+  }
   res.json({
     vincere: {
       authenticated: await vincereService.isAuthenticated(),

@@ -24,7 +24,7 @@ function CountdownTimer({ endDate }) {
   }, [endDate]);
 
   if (time.total <= 0) {
-    return <span className="text-mvp-fire font-bold">ENDED</span>;
+    return <span className="text-mvp-fire font-bold font-display">ENDED</span>;
   }
 
   return (
@@ -39,7 +39,7 @@ function CountdownTimer({ endDate }) {
           <div className="text-lg font-bold text-white font-mono">
             {String(value).padStart(2, '0')}
           </div>
-          <div className="text-[9px] text-white/30 uppercase tracking-widest">{label}</div>
+          <div className="text-[9px] text-white/30 uppercase tracking-widest font-display">{label}</div>
         </div>
       ))}
     </div>
@@ -82,9 +82,9 @@ export default function Challenge({ members }) {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <Target size={18} className="text-mvp-accent" />
-            <h2 className="text-lg font-bold">{challenge.name}</h2>
+            <h2 className="text-lg font-bold font-display">{challenge.name}</h2>
           </div>
-          <p className="text-sm text-white/50">{challenge.description}</p>
+          <p className="text-sm text-white/50 font-body">{challenge.description}</p>
         </div>
         <div className="flex items-center gap-2">
           <Clock size={14} className="text-white/40" />
@@ -95,12 +95,12 @@ export default function Challenge({ members }) {
       {/* Targets */}
       <div className="grid grid-cols-2 gap-3 mb-4">
         <div className="bg-mvp-dark rounded-lg p-3 border border-mvp-border">
-          <span className="text-xs text-white/40 uppercase tracking-wider">Deal Target</span>
-          <div className="text-xl font-bold text-mvp-success">{challenge.targets.deals} deals</div>
+          <span className="text-xs text-white/40 uppercase tracking-wider font-display">Deal Target</span>
+          <div className="text-xl font-bold text-mvp-success font-display">{challenge.targets.deals} deals</div>
         </div>
         <div className="bg-mvp-dark rounded-lg p-3 border border-mvp-border">
-          <span className="text-xs text-white/40 uppercase tracking-wider">Call Target</span>
-          <div className="text-xl font-bold text-mvp-electric">{challenge.targets.calls} calls</div>
+          <span className="text-xs text-white/40 uppercase tracking-wider font-display">Call Target</span>
+          <div className="text-xl font-bold text-mvp-accent font-display">{challenge.targets.calls} calls</div>
         </div>
       </div>
 
@@ -111,20 +111,20 @@ export default function Challenge({ members }) {
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <div
-                  className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold"
+                  className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold font-display"
                   style={{ backgroundColor: p.color + '20', color: p.color }}
                 >
                   {p.name[0]}
                 </div>
-                <span className="font-medium text-sm">{p.name}</span>
+                <span className="font-medium text-sm font-display">{p.name}</span>
               </div>
               {p.qualified ? (
-                <div className="flex items-center gap-1 text-xs text-mvp-success">
+                <div className="flex items-center gap-1 text-xs text-mvp-success font-display">
                   <CheckCircle2 size={14} />
                   <span className="font-semibold">Qualified</span>
                 </div>
               ) : (
-                <div className="flex items-center gap-1 text-xs text-white/30">
+                <div className="flex items-center gap-1 text-xs text-white/30 font-display">
                   <XCircle size={14} />
                   <span>In Progress</span>
                 </div>
@@ -132,18 +132,18 @@ export default function Challenge({ members }) {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <div className="flex justify-between text-[10px] text-white/40 mb-1">
+                <div className="flex justify-between text-[10px] text-white/40 mb-1 font-display">
                   <span>Deals</span>
                   <span>{p.dealsProgress}/{challenge.targets.deals}</span>
                 </div>
                 <ProgressBar current={p.dealsProgress} target={challenge.targets.deals} color="#00e676" />
               </div>
               <div>
-                <div className="flex justify-between text-[10px] text-white/40 mb-1">
+                <div className="flex justify-between text-[10px] text-white/40 mb-1 font-display">
                   <span>Calls</span>
                   <span>{p.callsProgress}/{challenge.targets.calls}</span>
                 </div>
-                <ProgressBar current={p.callsProgress} target={challenge.targets.calls} color="#00d4ff" />
+                <ProgressBar current={p.callsProgress} target={challenge.targets.calls} color="#59D6D6" />
               </div>
             </div>
           </div>

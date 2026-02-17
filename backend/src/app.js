@@ -3,6 +3,11 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import leaderboardRoutes from './routes/leaderboard.js';
 import authRoutes from './routes/auth.js';
+import celebrationRoutes from './routes/celebrations.js';
+import historyRoutes from './routes/history.js';
+import leagueRoutes from './routes/leagues.js';
+import missionRoutes from './routes/missions.js';
+import vincereService from './services/vincere.js';
 
 dotenv.config();
 
@@ -11,13 +16,338 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Vincere OAuth callback at exact registered redirect URI
+app.get('/api/vincere/callback', async (req, res) => {
+  const { code } = req.query;
+  if (!code) {
+    return res.status(400).json({ error: 'No authorization code provided' });
+  }
+  try {
+    await vincereService.exchangeCodeForTokens(code);
+    res.redirect('/?vincere=connected');
+  } catch (err) {
+    console.error('[Auth] Vincere callback error:', err.message);
+    res.status(500).json({ error: 'Token exchange failed', message: err.message });
+  }
+});
+
 // Routes
 app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/celebrations', celebrationRoutes);
+app.use('/api/history', historyRoutes);
+app.use('/api/leagues', leagueRoutes);
+app.use('/api/missions', missionRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Cron: daily snapshot (triggered by Vercel cron)
+app.get('/api/cron/snapshot', async (req, res) => {
+  try {
+    const { buildLeaderboard } = await import('./services/dataAggregator.js');
+    const historyService = (await import('./services/historyService.js')).default;
+    const data = await buildLeaderboard();
+    const snapshot = await historyService.takeSnapshot(data);
+    res.json({ success: !!snapshot, date: snapshot?.date });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Cron: weekly Slack report (triggered by Vercel cron on Mondays)
+app.get('/api/cron/weekly-report', async (req, res) => {
+  try {
+    const slackService = (await import('./services/slackService.js')).default;
+    if (!slackService.isConfigured()) {
+      return res.json({ skipped: true, reason: 'No SLACK_WEBHOOK_URL configured' });
+    }
+    const { buildLeaderboard } = await import('./services/dataAggregator.js');
+    const data = await buildLeaderboard();
+    await slackService.sendWeeklyReport(data.leaderboard, data.teamStats);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Debug: show all fields for a Vincere user
+app.get('/api/debug/user/:id', async (req, res) => {
+  try {
+    const isAuth = await vincereService.isAuthenticated();
+    if (!isAuth) return res.json({ error: 'Not authenticated' });
+    const user = await vincereService._apiGet(`/user/${req.params.id}`);
+    res.json({ allKeys: Object.keys(user), user });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Debug: check specific job placements
+app.get('/api/debug/job/:id', async (req, res) => {
+  try {
+    const isAuth = await vincereService.isAuthenticated();
+    if (!isAuth) return res.json({ error: 'Not authenticated' });
+    const placements = await vincereService.getJobPlacements(req.params.id);
+    res.json({ jobId: req.params.id, placements });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Debug: show placement fields from known jobs (lightweight, no full scan)
+app.get('/api/debug/placements', async (req, res) => {
+  try {
+    const isAuth = await vincereService.isAuthenticated();
+    if (!isAuth) return res.json({ error: 'Not authenticated' });
+
+    const { teamMembers } = await import('./config/team.js');
+    const emailToName = {};
+    for (const m of teamMembers) {
+      if (m.email) emailToName[m.email.toLowerCase()] = m.shortName;
+    }
+
+    // Check a small set of oldest jobs (most likely to have placements)
+    const data = await vincereService._apiGet(
+      '/job/search/fl=id;sort=created_date asc',
+      { start: 0 }
+    );
+    const jobIds = (data?.result?.items || []).map(j => j.id);
+    const placements = [];
+
+    for (const jobId of jobIds) {
+      try {
+        const p = await vincereService.getJobPlacements(jobId);
+        if (Array.isArray(p) && p.length > 0) {
+          // Show ALL fields of each placement to discover renewal_number etc
+          for (const pl of p) {
+            placements.push({
+              jobId,
+              allFields: pl,
+              allKeys: Object.keys(pl),
+              matched: emailToName[(pl.placed_by || '').toLowerCase()] || 'UNMATCHED',
+            });
+          }
+        }
+      } catch {}
+    }
+
+    // Also show current scan state from KV
+    let scanState = null;
+    try {
+      if (process.env.KV_REST_API_URL) {
+        const { Redis } = await import('@upstash/redis');
+        const redis = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
+        const raw = await redis.get('vincere-deals-scan');
+        if (raw) {
+          const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+          scanState = {
+            complete: parsed.complete,
+            scannedJobs: parsed.scannedJobIds?.length,
+            totalJobs: parsed.totalJobs,
+            stats: parsed.stats,
+            unmatchedEmails: parsed.unmatchedEmails,
+            timestamp: parsed.timestamp ? new Date(parsed.timestamp).toISOString() : null,
+          };
+        }
+      }
+    } catch {}
+
+    res.json({ emailMapping: emailToName, placementSamples: placements, scanState });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Debug: test Vincere API endpoints
+app.get('/api/debug/vincere', async (req, res) => {
+  try {
+    const isAuth = await vincereService.isAuthenticated();
+    if (!isAuth) return res.json({ error: 'Not authenticated' });
+
+    const results = {};
+
+    // 1. Try Lucene queries with creator_id
+    const queries = ['creator_id:28956', 'creator_id:28955', 'closed_job:true'];
+    for (const q of queries) {
+      try {
+        const data = await vincereService._apiGet(
+          '/job/search/fl=id,job_title,created_by;sort=created_date desc',
+          { q, start: 0 }
+        );
+        results[`query_${q}`] = { total: data?.result?.total, first: data?.result?.items?.[0] };
+      } catch (err) {
+        results[`query_${q}`] = { error: err.message };
+      }
+    }
+
+    // 2. Look for closed/placed jobs - check a range of older positions
+    const closedJobs = [];
+    try {
+      // Get 50 older jobs and check their status
+      const data = await vincereService._apiGet(
+        '/job/search/fl=id,job_title,created_by;sort=created_date asc',
+        { start: 0 }
+      );
+      const oldestJobs = data?.result?.items || [];
+      // Check the first few old jobs for placements
+      const checks = await Promise.allSettled(
+        oldestJobs.slice(0, 10).map(async (j) => {
+          const placements = await vincereService._apiGet(`/position/${j.id}/placements`);
+          return { jobId: j.id, title: j.job_title, creator: j.created_by?.name, placementCount: Array.isArray(placements) ? placements.length : 0, placements };
+        })
+      );
+      for (const c of checks) {
+        if (c.status === 'fulfilled') closedJobs.push(c.value);
+      }
+    } catch (err) {
+      results.oldJobCheck = { error: err.message };
+    }
+    results.oldestJobsPlacements = closedJobs;
+
+    // 3. Check position details for a few jobs to see status_id and closed_job
+    try {
+      const pos = await vincereService._apiGet('/position/49837');
+      results.posStatus = { id: pos.id, status_id: pos.status_id, closed_job: pos.closed_job, creator_id: pos.creator_id, deal_id: pos.deal_id };
+    } catch (err) {
+      results.posStatus = { error: err.message };
+    }
+
+    // 4. Also try /deal endpoint (positions have deal_id field)
+    try {
+      const data = await vincereService._apiGet('/deal/search/fl=id,title,status;sort=created_date desc', { start: 0 });
+      results.dealSearch = { total: data?.result?.total, first2: data?.result?.items?.slice(0, 2) };
+    } catch (err) {
+      results.dealSearch = { error: err.message };
+    }
+
+    res.json(results);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Debug: look up Vincere user emails to verify team config
+app.get('/api/debug/users', async (req, res) => {
+  try {
+    const isAuth = await vincereService.isAuthenticated();
+    if (!isAuth) return res.json({ error: 'Not authenticated' });
+
+    const { teamMembers } = await import('./config/team.js');
+    const results = [];
+
+    for (const m of teamMembers) {
+      try {
+        const user = await vincereService._apiGet(`/user/${m.vincereId}`);
+        results.push({
+          name: m.name,
+          vincereId: m.vincereId,
+          configEmail: m.email,
+          vincereEmail: user?.email || user?.primary_email || null,
+          allEmailFields: {
+            email: user?.email,
+            primary_email: user?.primary_email,
+            personal_email: user?.personal_email,
+          },
+          vincereName: user?.name || user?.first_name + ' ' + user?.last_name,
+          match: (m.email || '').toLowerCase() === (user?.email || '').toLowerCase(),
+        });
+      } catch (err) {
+        results.push({ name: m.name, vincereId: m.vincereId, error: err.message });
+      }
+    }
+
+    res.json(results);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Debug: test 8x8 auth and data fetch
+app.get('/api/debug/8x8', async (req, res) => {
+  const eightByEightService = (await import('./services/eightByEight.js')).default;
+  const results = { env: {}, auth: {}, data: {} };
+
+  const username = process.env.EIGHT_BY_EIGHT_USERNAME;
+  const password = process.env.EIGHT_BY_EIGHT_PASSWORD;
+
+  results.env = {
+    hasApiKey: !!process.env.EIGHT_BY_EIGHT_API_KEY,
+    apiKeyPrefix: process.env.EIGHT_BY_EIGHT_API_KEY?.substring(0, 6) + '...',
+    hasSecret: !!process.env.EIGHT_BY_EIGHT_SECRET,
+    hasPbxId: !!process.env.EIGHT_BY_EIGHT_PBX_ID,
+    hasUsername: !!username,
+    usernameValue: username ? username.substring(0, 3) + '***' : null,
+    hasPassword: !!password,
+    passwordLength: password?.length || 0,
+    baseUrl: eightByEightService.baseUrl,
+    isAuthenticated: eightByEightService.isAuthenticated(),
+  };
+
+  // Try username/password auth with detailed error
+  if (!eightByEightService.isAuthenticated() && username && password) {
+    const urls = [
+      `${eightByEightService.baseUrl}/analytics/work/v1/oauth/token`,
+      `https://api.8x8.com/analytics/work/v1/oauth/token`,
+    ];
+
+    results.auth = { attempts: [] };
+
+    for (const url of urls) {
+      try {
+        const body = new URLSearchParams({ username, password });
+        const fetchRes = await fetch(url, {
+          method: 'POST',
+          headers: {
+            '8x8-apikey': eightByEightService.apiKey,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body,
+        });
+
+        const responseText = await fetchRes.text();
+        const attempt = {
+          url,
+          status: fetchRes.status,
+          ok: fetchRes.ok,
+          response: responseText.substring(0, 500),
+        };
+
+        if (fetchRes.ok) {
+          try {
+            const data = JSON.parse(responseText);
+            eightByEightService.accessToken = data.access_token;
+            eightByEightService.tokenExpiry = new Date(Date.now() + (data.expires_in || 1800) * 1000);
+            await eightByEightService._saveTokens();
+            attempt.success = true;
+            attempt.expiresIn = data.expires_in;
+          } catch (e) {
+            attempt.parseError = e.message;
+          }
+        }
+
+        results.auth.attempts.push(attempt);
+        if (fetchRes.ok) break;
+      } catch (err) {
+        results.auth.attempts.push({ url, error: err.message });
+      }
+    }
+  }
+
+  // Try fetching data if authenticated
+  if (eightByEightService.isAuthenticated()) {
+    try {
+      const data = await eightByEightService.getMonthStats();
+      const parsed = eightByEightService.parseExtensionStats(data);
+      results.data = { extensions: Object.keys(parsed).length, sample: Object.values(parsed)[0] || null };
+    } catch (err) {
+      results.data = { error: err.message };
+    }
+  }
+
+  res.json(results);
 });
 
 export default app;

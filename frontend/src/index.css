@@ -9,11 +9,17 @@
 }
 
 body {
-  background-color: #0a0a0f;
+  background-color: #0B245C;
   color: #ffffff;
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'Merriweather', Georgia, serif;
+  font-weight: 300;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6,
+.font-bold, .font-semibold, .font-black, .font-extrabold {
+  font-family: 'Montserrat', system-ui, sans-serif;
 }
 
 /* Custom scrollbar */
@@ -21,14 +27,14 @@ body {
   width: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #0a0a0f;
+  background: #0B245C;
 }
 ::-webkit-scrollbar-thumb {
-  background: #1e1e2e;
+  background: #163478;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #6c5ce7;
+  background: #59D6D6;
 }
 
 /* Glow effects */
@@ -36,18 +42,21 @@ body {
   box-shadow: 0 0 20px rgba(255, 215, 0, 0.3), 0 0 40px rgba(255, 215, 0, 0.1);
 }
 .glow-accent {
-  box-shadow: 0 0 20px rgba(108, 92, 231, 0.3), 0 0 40px rgba(108, 92, 231, 0.1);
+  box-shadow: 0 0 20px rgba(89, 214, 214, 0.3), 0 0 40px rgba(89, 214, 214, 0.1);
+}
+.glow-teal {
+  box-shadow: 0 0 20px rgba(89, 214, 214, 0.4), 0 0 40px rgba(89, 214, 214, 0.15);
 }
 .glow-fire {
   box-shadow: 0 0 20px rgba(255, 107, 53, 0.3), 0 0 40px rgba(255, 107, 53, 0.1);
 }
 .glow-electric {
-  box-shadow: 0 0 20px rgba(0, 212, 255, 0.3), 0 0 40px rgba(0, 212, 255, 0.1);
+  box-shadow: 0 0 20px rgba(89, 214, 214, 0.3), 0 0 40px rgba(89, 214, 214, 0.1);
 }
 
 /* Gradient text */
 .gradient-text {
-  background: linear-gradient(135deg, #6c5ce7, #00d4ff);
+  background: linear-gradient(135deg, #59D6D6, #ffffff);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -58,4 +67,13 @@ body {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+/* TV Mode */
+.tv-mode {
+  cursor: none;
+  overflow: hidden;
+}
+.tv-mode * {
+  user-select: none;
 }

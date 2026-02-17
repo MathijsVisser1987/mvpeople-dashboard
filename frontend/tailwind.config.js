@@ -8,21 +8,22 @@ export default {
     extend: {
       colors: {
         mvp: {
-          dark: '#0a0a0f',
-          card: '#12121a',
-          border: '#1e1e2e',
-          accent: '#6c5ce7',
+          dark: '#0B245C',
+          card: '#0E2D6B',
+          border: '#163478',
+          accent: '#59D6D6',
           gold: '#ffd700',
           silver: '#c0c0c0',
           bronze: '#cd7f32',
           fire: '#ff6b35',
-          electric: '#00d4ff',
+          electric: '#59D6D6',
           success: '#00e676',
           warning: '#ffab00',
         }
       },
       fontFamily: {
-        display: ['Inter', 'system-ui', 'sans-serif'],
+        display: ['Montserrat', 'system-ui', 'sans-serif'],
+        body: ['Merriweather', 'Georgia', 'serif'],
       },
       animation: {
         'pulse-glow': 'pulse-glow 2s ease-in-out infinite',
@@ -31,8 +32,8 @@ export default {
       },
       keyframes: {
         'pulse-glow': {
-          '0%, 100%': { boxShadow: '0 0 20px rgba(108, 92, 231, 0.3)' },
-          '50%': { boxShadow: '0 0 40px rgba(108, 92, 231, 0.6)' },
+          '0%, 100%': { boxShadow: '0 0 20px rgba(89, 214, 214, 0.3)' },
+          '50%': { boxShadow: '0 0 40px rgba(89, 214, 214, 0.6)' },
         },
         'slide-up': {
           '0%': { transform: 'translateY(20px)', opacity: '0' },

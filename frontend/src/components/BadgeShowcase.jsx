@@ -16,7 +16,7 @@ export default function BadgeShowcase({ members }) {
     <div className="bg-mvp-card rounded-xl border border-mvp-border p-5">
       <div className="flex items-center gap-2 mb-4">
         <Award size={18} className="text-mvp-accent" />
-        <h2 className="text-lg font-bold">Badges</h2>
+        <h2 className="text-lg font-bold font-display">Badges</h2>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -34,10 +34,10 @@ export default function BadgeShowcase({ members }) {
               }`}
             >
               <div className="text-3xl mb-1.5">{badge.icon}</div>
-              <div className="text-xs font-semibold text-white/80 mb-0.5">{badge.name}</div>
-              <div className="text-[10px] text-white/30 leading-tight">{badge.description}</div>
+              <div className="text-xs font-semibold text-white/80 mb-0.5 font-display">{badge.name}</div>
+              <div className="text-[10px] text-white/30 leading-tight font-body">{badge.description}</div>
               {earned && (
-                <div className="mt-1.5 text-[10px] font-medium" style={{ color: badge.color }}>
+                <div className="mt-1.5 text-[10px] font-medium font-display text-mvp-accent">
                   {count}/{memberList.length} earned
                 </div>
               )}

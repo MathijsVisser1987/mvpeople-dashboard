@@ -6,7 +6,6 @@ let TOKEN_FILE = null;
 async function getRedis() {
   if (redis) return redis;
   try {
-    // Only use Redis if Upstash env vars are present (i.e. running on Vercel with KV store)
     if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
       const { Redis } = await import('@upstash/redis');
       redis = new Redis({
@@ -36,6 +35,7 @@ async function getFsPath() {
 }
 
 const KV_KEY = 'vincere-tokens';
+const KV_DEALS_KEY = 'vincere-deals-cache';
 
 class VincereService {
   constructor() {
@@ -53,22 +53,22 @@ class VincereService {
     this._tokensLoaded = false;
   }
 
-  // --- Token persistence (KV on Vercel, filesystem locally) ---
+  // --- Token persistence ---
 
   async _loadTokens() {
     if (this._tokensLoaded) return;
     this._tokensLoaded = true;
 
-    // Try Upstash Redis first
     const store = await getRedis();
     if (store) {
       try {
         const data = await store.get(KV_KEY);
         if (data) {
-          this.idToken = data.idToken || null;
-          this.accessToken = data.accessToken || null;
-          this.refreshToken = data.refreshToken || null;
-          this.tokenExpiry = data.tokenExpiry ? new Date(data.tokenExpiry) : null;
+          const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+          this.idToken = parsed.idToken || null;
+          this.accessToken = parsed.accessToken || null;
+          this.refreshToken = parsed.refreshToken || null;
+          this.tokenExpiry = parsed.tokenExpiry ? new Date(parsed.tokenExpiry) : null;
           console.log('[Vincere] Loaded tokens from Redis');
           return;
         }
@@ -77,7 +77,6 @@ class VincereService {
       }
     }
 
-    // Fallback to filesystem (local dev)
     const filePath = await getFsPath();
     if (filePath && fs) {
       try {
@@ -103,7 +102,6 @@ class VincereService {
       tokenExpiry: this.tokenExpiry?.toISOString(),
     };
 
-    // Try Upstash Redis first
     const store = await getRedis();
     if (store) {
       try {
@@ -115,7 +113,6 @@ class VincereService {
       }
     }
 
-    // Fallback to filesystem (local dev)
     const filePath = await getFsPath();
     if (filePath && fs) {
       try {
@@ -198,7 +195,6 @@ class VincereService {
     if (!this.idToken || !this.refreshToken) {
       throw new Error('NOT_AUTHENTICATED');
     }
-    // Refresh if token expires within 5 minutes
     if (!this.tokenExpiry || Date.now() > this.tokenExpiry.getTime() - 5 * 60 * 1000) {
       await this.refreshTokens();
     }
@@ -211,7 +207,7 @@ class VincereService {
 
   // --- API Calls ---
 
-  async _apiGet(endpoint, params = {}) {
+  async _apiGet(endpoint, params = {}, retries = 3) {
     await this.ensureValidToken();
 
     const url = new URL(`${this.apiBase}${endpoint}`);
@@ -219,100 +215,202 @@ class VincereService {
       if (v !== undefined && v !== null) url.searchParams.set(k, v);
     });
 
-    const res = await fetch(url, {
-      headers: {
-        'id-token': this.idToken,
-        'x-api-key': this.apiKey,
-        'Content-Type': 'application/json',
-      },
-    });
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      const res = await fetch(url, {
+        headers: {
+          'id-token': this.idToken,
+          'x-api-key': this.apiKey,
+          'Content-Type': 'application/json',
+        },
+      });
 
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`Vincere API error ${res.status}: ${err}`);
+      if (res.status === 429 && attempt < retries) {
+        const delay = Math.pow(2, attempt + 1) * 1000; // 2s, 4s, 8s
+        console.log(`[Vincere] Rate limited on ${endpoint}, retrying in ${delay}ms...`);
+        await new Promise(r => setTimeout(r, delay));
+        continue;
+      }
+
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(`Vincere API ${res.status} ${endpoint}: ${err}`);
+      }
+
+      return res.json();
     }
-
-    return res.json();
   }
 
-  async getCandidatePlacements(candidateId) {
-    return this._apiGet(`/candidate/${candidateId}/placement_status`);
-  }
-
-  async searchByOwner(entity, ownerId, startIndex = 0, limit = 50) {
-    return this._apiGet(`/${entity}/search/fl=id;sort=created_date`, {
-      owner_id: ownerId,
-      start: startIndex,
-      limit,
-    });
-  }
-
-  async getPlacement(placementId) {
-    return this._apiGet(`/placement/${placementId}`);
-  }
+  // --- Placement/Deal fetching ---
+  // Vincere API v2: 10 items per page, no way to increase.
+  // /position/{id}/placements → [ { placement_id, placed_by, status, ... } ]
+  // No /placement/search endpoint. Must scan jobs individually.
+  // Deals attributed by placed_by email, not job creator.
+  //
+  // Progressive scan: each request scans a chunk of jobs, results accumulate in KV.
+  // Full scan of 866+ jobs takes multiple requests to complete.
 
   async getJobPlacements(jobId) {
     return this._apiGet(`/position/${jobId}/placements`);
   }
 
-  async searchJobs(params = {}) {
-    const queryParts = [];
-    if (params.startDate) queryParts.push(`created_date:[${params.startDate} TO *]`);
-    if (params.endDate) queryParts.push(`created_date:[* TO ${params.endDate}]`);
+  // Scan a chunk of jobs for placements, accumulating results in KV
+  async getAllTeamDeals(teamMembers) {
+    const store = await getRedis();
+    const KV_SCAN_KEY = 'vincere-deals-scan';
 
-    return this._apiGet('/job/search/fl=id,created_date,job_title,status', {
-      q: queryParts.length ? queryParts.join(' AND ') : undefined,
-      start: params.start || 0,
-      limit: params.limit || 100,
-    });
-  }
-
-  async getRecruiterPlacements(vincereId) {
-    try {
-      const result = await this._apiGet(`/user/${vincereId}/placements`, {
-        start: 0,
-        limit: 100,
-      });
-      return result;
-    } catch {
+    // Load existing scan state from KV
+    let scanState = null;
+    if (store) {
       try {
-        const result = await this._apiGet(`/placement/search/fl=id,candidate_id,job_id,created_date,start_date,salary,percentage_of_salary,fee_value,status`, {
-          sort: '-created_date',
-          start: 0,
-          limit: 100,
-        });
-        return result;
-      } catch (err2) {
-        console.warn(`[Vincere] Could not fetch placements for user ${vincereId}:`, err2.message);
-        return { result: [] };
+        const cached = await store.get(KV_SCAN_KEY);
+        if (cached) {
+          scanState = typeof cached === 'string' ? JSON.parse(cached) : cached;
+        }
+      } catch (err) {
+        console.log('[Vincere] Scan state read error:', err.message);
       }
     }
-  }
 
-  async getAllRecentPlacements(daysBack = 30) {
-    try {
-      const result = await this._apiGet('/placement/search/fl=id,candidate_id,job_id,created_date,start_date,fee_value,status,owner_id', {
-        sort: '-created_date',
-        start: 0,
-        limit: 200,
-      });
-      return result;
-    } catch (err) {
-      console.warn('[Vincere] Placement search failed:', err.message);
-      return { result: [], total: 0 };
+    // If we have a completed scan that's less than 1 hour old, use it
+    if (scanState && scanState.complete && scanState.timestamp &&
+        Date.now() - scanState.timestamp < 60 * 60 * 1000) {
+      console.log('[Vincere] Using completed scan from', new Date(scanState.timestamp).toISOString());
+      return scanState.stats;
     }
-  }
 
-  async getPlacementDetail(placementId) {
-    try {
-      return await this._apiGet(`/placement/${placementId}`);
-    } catch (err) {
-      console.warn(`[Vincere] Failed to get placement ${placementId}:`, err.message);
-      return null;
+    // Build email → vincereId lookup
+    const emailToId = {};
+    for (const m of teamMembers) {
+      if (m.email) emailToId[m.email.toLowerCase()] = m.vincereId;
     }
+
+    // Initialize or continue scan
+    let stats = {};
+    let scannedJobIds = new Set();
+    let seenAppIds = new Set();
+    let nextStart = 0;
+    let totalJobs = null;
+    let unmatchedEmails = {};
+
+    if (scanState && !scanState.complete && scanState.stats) {
+      // Continue from where we left off
+      stats = scanState.stats;
+      scannedJobIds = new Set(scanState.scannedJobIds || []);
+      seenAppIds = new Set(scanState.seenAppIds || []);
+      nextStart = scanState.nextStart || 0;
+      totalJobs = scanState.totalJobs || null;
+      unmatchedEmails = scanState.unmatchedEmails || {};
+      console.log(`[Vincere] Resuming scan from start=${nextStart}, scanned ${scannedJobIds.size} jobs, ${seenAppIds.size} unique app IDs`);
+    } else {
+      // Fresh scan
+      for (const m of teamMembers) {
+        stats[m.vincereId] = { deals: 0, activePlacements: 0, pipelineValue: 0 };
+      }
+    }
+
+    const startTime = Date.now();
+    const MAX_DURATION_MS = 20000; // Stop after 20s to leave room for response
+
+    try {
+      // Fetch job pages and check placements until time runs out
+      while (totalJobs === null || nextStart < totalJobs) {
+        if (Date.now() - startTime > MAX_DURATION_MS) {
+          console.log(`[Vincere] Time limit reached at start=${nextStart}, saving progress`);
+          break;
+        }
+
+        // Fetch a page of job IDs
+        const data = await this._apiGet(
+          '/job/search/fl=id;sort=created_date asc',
+          { start: nextStart }
+        );
+        const items = data?.result?.items || [];
+        if (totalJobs === null) totalJobs = data?.result?.total || 0;
+
+        if (items.length === 0) break;
+
+        // Check placements for these jobs
+        const jobIds = items.map(j => j.id).filter(id => id && !scannedJobIds.has(id));
+        if (jobIds.length > 0) {
+          const results = await Promise.allSettled(
+            jobIds.map(jobId => this.getJobPlacements(jobId))
+          );
+
+          for (let i = 0; i < results.length; i++) {
+            const result = results[i];
+            scannedJobIds.add(jobIds[i]);
+
+            if (result.status === 'fulfilled' && Array.isArray(result.value)) {
+              for (const placement of result.value) {
+                // Use application_id as unique deal key: each APP ID = max 1 deal.
+                // Only count renewal_number 0, 1, null/undefined (new placements).
+                // renewal_number 2, 3, etc. are contract extensions.
+                const renewalNum = placement.renewal_number ?? placement.renewal ?? null;
+                if (renewalNum !== null && renewalNum !== undefined && renewalNum > 1) {
+                  continue; // Contract extension, skip
+                }
+
+                // Deduplicate by application_id across entire scan
+                const appId = placement.application_id;
+                if (appId && seenAppIds.has(appId)) {
+                  continue; // Already counted this application
+                }
+                if (appId) seenAppIds.add(appId);
+
+                const placedByEmail = (placement.placed_by || '').toLowerCase();
+                const vincereId = emailToId[placedByEmail];
+                if (vincereId && stats[vincereId]) {
+                  stats[vincereId].deals++;
+                  if (placement.status !== 'terminated' && placement.status !== 'cancelled') {
+                    stats[vincereId].activePlacements++;
+                  }
+                } else if (placedByEmail) {
+                  unmatchedEmails[placedByEmail] = (unmatchedEmails[placedByEmail] || 0) + 1;
+                }
+              }
+            }
+          }
+        }
+
+        nextStart += items.length;
+      }
+    } catch (err) {
+      console.error('[Vincere] Deal scan error:', err.message);
+    }
+
+    const isComplete = totalJobs !== null && nextStart >= totalJobs;
+
+    if (Object.keys(unmatchedEmails).length > 0) {
+      console.log('[Vincere] Unmatched placed_by emails:', JSON.stringify(unmatchedEmails));
+    }
+
+    for (const m of teamMembers) {
+      const s = stats[m.vincereId] || { deals: 0 };
+      console.log(`[Vincere] ${m.shortName}: ${s.deals} placements (${s.activePlacements || 0} active)`);
+    }
+    console.log(`[Vincere] Scan ${isComplete ? 'COMPLETE' : 'IN PROGRESS'}: ${scannedJobIds.size}/${totalJobs || '?'} jobs scanned`);
+
+    // Save scan state to KV
+    if (store) {
+      try {
+        await store.set(KV_SCAN_KEY, JSON.stringify({
+          stats,
+          scannedJobIds: [...scannedJobIds],
+          seenAppIds: [...seenAppIds],
+          nextStart,
+          totalJobs,
+          unmatchedEmails,
+          complete: isComplete,
+          timestamp: isComplete ? Date.now() : (scanState?.timestamp || Date.now()),
+        }));
+      } catch (err) {
+        console.log('[Vincere] Scan state write error:', err.message);
+      }
+    }
+
+    return { stats, scanComplete: isComplete };
   }
 }
 
-// Singleton
 const vincereService = new VincereService();
 export default vincereService;

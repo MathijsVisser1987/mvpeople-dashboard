@@ -1,5 +1,7 @@
 import vincereService from './vincere.js';
 import eightByEightService from './eightByEight.js';
+import celebrationService from './celebrationService.js';
+import historyService from './historyService.js';
 import { teamMembers, calculatePoints, getMultiplier, computeBadges } from '../config/team.js';
 
 // Cache to avoid hammering APIs
@@ -64,39 +66,27 @@ async function getDailyCallStats(daysBack = 3) {
 }
 
 // Get placement/deal stats from Vincere
+// Strategy: fetch all jobs, group by created_by.id, check placements per job
 async function getDealStats() {
   const stats = {};
+  let scanComplete = false;
 
   if (!(await vincereService.isAuthenticated())) {
     console.log('[Aggregator] Vincere not authenticated, returning empty deal stats');
-    return stats;
+    return { stats, scanComplete };
   }
 
   try {
-    const placements = await vincereService.getAllRecentPlacements(30);
-    const placementList = placements.result || placements || [];
-
-    for (const member of teamMembers) {
-      const memberPlacements = Array.isArray(placementList)
-        ? placementList.filter(p => p.owner_id === member.vincereId)
-        : [];
-
-      let totalFeeValue = 0;
-      for (const p of memberPlacements) {
-        totalFeeValue += p.fee_value || p.salary || 0;
-      }
-
-      stats[member.vincereId] = {
-        deals: memberPlacements.length,
-        pipelineValue: totalFeeValue,
-        placements: memberPlacements,
-      };
+    const result = await vincereService.getAllTeamDeals(teamMembers);
+    scanComplete = result.scanComplete || false;
+    for (const [vincereId, data] of Object.entries(result.stats)) {
+      stats[vincereId] = data;
     }
   } catch (err) {
     console.error('[Aggregator] Vincere fetch error:', err.message);
   }
 
-  return stats;
+  return { stats, scanComplete };
 }
 
 // Calculate streak from daily stats
@@ -135,11 +125,21 @@ export async function buildLeaderboard() {
     return cache.leaderboard;
   }
 
-  const [callStats, dealStats, dailyStats] = await Promise.all([
+  const [callStats, dealResult, dailyStats] = await Promise.all([
     getCallStats(),
     getDealStats(),
     getDailyCallStats(3),
   ]);
+
+  const dealStats = dealResult.stats;
+  const scanComplete = dealResult.scanComplete;
+
+  // Detect new deals and create celebrations (only when scan is complete)
+  try {
+    await celebrationService.detectNewDeals(dealStats, teamMembers, scanComplete);
+  } catch (err) {
+    console.log('[Aggregator] Celebration detection error:', err.message);
+  }
 
   const leaderboard = teamMembers.map((member, index) => {
     const calls = callStats[member.extension] || {};
@@ -167,6 +167,7 @@ export async function buildLeaderboard() {
       name: member.shortName,
       fullName: member.name,
       avatar: member.avatar,
+      photo: member.photo || null,
       color: member.color,
       role: member.role,
       vincereId: member.vincereId,
@@ -186,6 +187,11 @@ export async function buildLeaderboard() {
 
   leaderboard.sort((a, b) => b.points - a.points);
 
+  let celebrations = [];
+  try {
+    celebrations = await celebrationService.getCelebrations(5);
+  } catch {}
+
   const result = {
     leaderboard,
     teamStats: {
@@ -194,6 +200,7 @@ export async function buildLeaderboard() {
       totalPipeline: leaderboard.reduce((s, m) => s + m.pipelineValue, 0),
       totalTalkTime: leaderboard.reduce((s, m) => s + m.talkTimeMinutes, 0),
     },
+    celebrations,
     apiStatus: {
       vincere: await vincereService.isAuthenticated(),
       eightByEight: eightByEightService.isAuthenticated(),
@@ -203,6 +210,9 @@ export async function buildLeaderboard() {
 
   cache.leaderboard = result;
   cache.lastFetch = Date.now();
+
+  // Auto-snapshot: save once per day (non-blocking)
+  historyService.takeSnapshot(result).catch(() => {});
 
   return result;
 }

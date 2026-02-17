@@ -134,13 +134,13 @@ export const badgeDefinitions = {
     name: 'First Deal',
     icon: '🎯',
     description: 'Closed your first deal',
-    color: '#6c5ce7',
+    color: '#59D6D6',
   },
   'call-machine': {
     name: 'Call Machine',
     icon: '📞',
     description: '50+ calls in a single day',
-    color: '#00d4ff',
+    color: '#59D6D6',
   },
   'speed-demon': {
     name: 'Speed Demon',
