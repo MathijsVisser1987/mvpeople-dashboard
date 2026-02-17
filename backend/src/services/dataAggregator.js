@@ -1,0 +1,213 @@
+import vincereService from './vincere.js';
+import eightByEightService from './eightByEight.js';
+import { teamMembers, calculatePoints, getMultiplier, computeBadges } from '../config/team.js';
+
+// Cache to avoid hammering APIs
+let cache = {
+  leaderboard: null,
+  lastFetch: null,
+  ttl: 60 * 1000, // 1 minute cache
+};
+
+// Get call stats from 8x8 for all team members
+async function getCallStats() {
+  const stats = {};
+
+  try {
+    // ensureAuthenticated will auto-login from env vars if available
+    const rawData = await eightByEightService.getMonthStats();
+    const parsed = eightByEightService.parseExtensionStats(rawData);
+
+    for (const member of teamMembers) {
+      const extStats = parsed[member.extension];
+      if (extStats) {
+        stats[member.extension] = extStats;
+      }
+    }
+  } catch (err) {
+    console.log('[Aggregator] 8x8 not available:', err.message);
+  }
+
+  return stats;
+}
+
+// Get daily call stats for streak calculation (parallelized, reduced to 3 days)
+async function getDailyCallStats(daysBack = 3) {
+  const dailyStats = {};
+
+  try {
+    const now = new Date();
+    const fetches = [];
+
+    for (let i = 0; i < daysBack; i++) {
+      const date = new Date(now);
+      date.setDate(date.getDate() - i);
+      const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+      const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59);
+      const dateKey = startOfDay.toISOString().split('T')[0];
+
+      fetches.push(
+        eightByEightService.getExtensionSummary(startOfDay, endOfDay)
+          .then(rawData => {
+            dailyStats[dateKey] = eightByEightService.parseExtensionStats(rawData);
+          })
+          .catch(() => {}) // Silently skip failed days
+      );
+    }
+
+    await Promise.all(fetches);
+  } catch (err) {
+    console.log('[Aggregator] Daily stats not available:', err.message);
+  }
+
+  return dailyStats;
+}
+
+// Get placement/deal stats from Vincere
+async function getDealStats() {
+  const stats = {};
+
+  if (!(await vincereService.isAuthenticated())) {
+    console.log('[Aggregator] Vincere not authenticated, returning empty deal stats');
+    return stats;
+  }
+
+  try {
+    const placements = await vincereService.getAllRecentPlacements(30);
+    const placementList = placements.result || placements || [];
+
+    for (const member of teamMembers) {
+      const memberPlacements = Array.isArray(placementList)
+        ? placementList.filter(p => p.owner_id === member.vincereId)
+        : [];
+
+      let totalFeeValue = 0;
+      for (const p of memberPlacements) {
+        totalFeeValue += p.fee_value || p.salary || 0;
+      }
+
+      stats[member.vincereId] = {
+        deals: memberPlacements.length,
+        pipelineValue: totalFeeValue,
+        placements: memberPlacements,
+      };
+    }
+  } catch (err) {
+    console.error('[Aggregator] Vincere fetch error:', err.message);
+  }
+
+  return stats;
+}
+
+// Calculate streak from daily stats
+function calculateStreak(extension, dailyStats) {
+  const dates = Object.keys(dailyStats).sort().reverse();
+  let streak = 0;
+
+  for (const date of dates) {
+    const dayData = dailyStats[date]?.[extension];
+    if (dayData && (dayData.callsMade > 0 || dayData.totalCalls > 0)) {
+      streak++;
+    } else {
+      break;
+    }
+  }
+
+  return streak;
+}
+
+// Find max daily calls for badge calculation
+function getMaxDailyCalls(extension, dailyStats) {
+  let max = 0;
+  for (const date of Object.keys(dailyStats)) {
+    const dayData = dailyStats[date]?.[extension];
+    if (dayData) {
+      max = Math.max(max, dayData.callsMade || 0);
+    }
+  }
+  return max;
+}
+
+// Build the full leaderboard
+export async function buildLeaderboard() {
+  // Check cache
+  if (cache.leaderboard && cache.lastFetch && Date.now() - cache.lastFetch < cache.ttl) {
+    return cache.leaderboard;
+  }
+
+  const [callStats, dealStats, dailyStats] = await Promise.all([
+    getCallStats(),
+    getDealStats(),
+    getDailyCallStats(3),
+  ]);
+
+  const leaderboard = teamMembers.map((member, index) => {
+    const calls = callStats[member.extension] || {};
+    const deals = dealStats[member.vincereId] || {};
+    const streak = calculateStreak(member.extension, dailyStats);
+    const maxDailyCalls = getMaxDailyCalls(member.extension, dailyStats);
+
+    const callsMade = calls.callsMade || calls.externalCallsMade || 0;
+    const talkTimeMinutes = calls.totalTalkTimeMinutes || 0;
+    const dealsCount = deals.deals || 0;
+    const pipelineValue = deals.pipelineValue || 0;
+
+    const points = calculatePoints(dealsCount, callsMade, talkTimeMinutes, streak);
+    const multiplier = getMultiplier(streak);
+
+    const badgeStats = {
+      deals: dealsCount,
+      maxDailyCalls,
+      streak,
+      pipelineValue,
+    };
+
+    return {
+      id: index + 1,
+      name: member.shortName,
+      fullName: member.name,
+      avatar: member.avatar,
+      color: member.color,
+      role: member.role,
+      vincereId: member.vincereId,
+      extension: member.extension,
+      deals: dealsCount,
+      calls: callsMade,
+      talkTimeMinutes,
+      pipelineValue,
+      streak,
+      multiplier,
+      points,
+      badges: computeBadges(badgeStats),
+      hasCallData: !!callStats[member.extension],
+      hasDealData: !!dealStats[member.vincereId]?.deals,
+    };
+  });
+
+  leaderboard.sort((a, b) => b.points - a.points);
+
+  const result = {
+    leaderboard,
+    teamStats: {
+      totalDeals: leaderboard.reduce((s, m) => s + m.deals, 0),
+      totalCalls: leaderboard.reduce((s, m) => s + m.calls, 0),
+      totalPipeline: leaderboard.reduce((s, m) => s + m.pipelineValue, 0),
+      totalTalkTime: leaderboard.reduce((s, m) => s + m.talkTimeMinutes, 0),
+    },
+    apiStatus: {
+      vincere: await vincereService.isAuthenticated(),
+      eightByEight: eightByEightService.isAuthenticated(),
+    },
+    lastUpdated: new Date().toISOString(),
+  };
+
+  cache.leaderboard = result;
+  cache.lastFetch = Date.now();
+
+  return result;
+}
+
+export function clearCache() {
+  cache.leaderboard = null;
+  cache.lastFetch = null;
+}
