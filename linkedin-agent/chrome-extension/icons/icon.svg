@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <rect width="128" height="128" rx="24" fill="#1e293b"/>
+  <text x="16" y="56" font-family="Arial, sans-serif" font-size="36" font-weight="bold" fill="#3b82f6">in</text>
+  <text x="52" y="56" font-family="Arial, sans-serif" font-size="28" fill="#94a3b8">→</text>
+  <text x="78" y="56" font-family="Arial, sans-serif" font-size="28" font-weight="bold" fill="#22c55e">V</text>
+  <text x="20" y="96" font-family="Arial, sans-serif" font-size="16" font-weight="600" fill="#f1f5f9">MVPeople</text>
+</svg>

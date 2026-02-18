@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface-light: #334155;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --success: #22c55e;
+      --warning: #eab308;
+      --error: #ef4444;
+      --lusha: #8b5cf6;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --border: #475569;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      width: 380px;
+      min-height: 200px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    .header {
+      padding: 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header h1 {
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .header h1 span { color: var(--primary); }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .status-dot.ok { background: var(--success); }
+    .status-dot.err { background: var(--error); }
+
+    .settings-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 16px;
+      padding: 4px;
+    }
+
+    .settings-btn:hover { color: var(--text); }
+
+    /* Content */
+    .content { padding: 16px; }
+
+    /* Not on LinkedIn warning */
+    .not-linkedin {
+      text-align: center;
+      padding: 32px 16px;
+      color: var(--text-muted);
+    }
+
+    .not-linkedin .icon { font-size: 32px; margin-bottom: 12px; }
+
+    /* Profile card */
+    .profile-card {
+      background: var(--surface);
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+
+    .profile-name {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .profile-title {
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .profile-meta {
+      display: flex;
+      gap: 12px;
+      color: var(--text-muted);
+      font-size: 12px;
+      margin-top: 6px;
+    }
+
+    .profile-meta span {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* Lusha enrichment */
+    .lusha-section {
+      background: var(--surface);
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 12px;
+      border-left: 3px solid var(--lusha);
+    }
+
+    .lusha-section h3 {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--lusha);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .lusha-data {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 12px;
+    }
+
+    .lusha-data .item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .lusha-data .label { color: var(--text-muted); }
+    .lusha-data .value { font-weight: 500; }
+
+    .lusha-status {
+      text-align: center;
+      padding: 8px;
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+
+    /* Options */
+    .options {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .options label {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+
+    .options input[type="checkbox"] {
+      accent-color: var(--primary);
+    }
+
+    /* Buttons */
+    .btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-lusha {
+      background: var(--lusha);
+      color: white;
+      font-size: 12px;
+      padding: 8px;
+      margin-bottom: 8px;
+    }
+
+    .btn-lusha:hover { opacity: 0.9; }
+
+    /* Steps */
+    .steps {
+      margin-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      background: var(--surface);
+      border-radius: 8px;
+      font-size: 12px;
+    }
+
+    .step-icon {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      flex-shrink: 0;
+      font-weight: 700;
+    }
+
+    .step-icon.done { background: var(--success); color: white; }
+    .step-icon.error { background: var(--error); color: white; }
+    .step-icon.warning { background: var(--warning); color: #000; }
+    .step-icon.skipped { background: var(--surface-light); color: var(--text-muted); }
+    .step-icon.duplicate { background: var(--warning); color: #000; }
+    .step-icon.running { background: var(--primary); color: white; }
+
+    .step-name { font-weight: 500; min-width: 90px; }
+    .step-detail { color: var(--text-muted); flex: 1; }
+
+    /* Job matches */
+    .matches { margin-top: 12px; }
+    .matches h3 { font-size: 13px; margin-bottom: 8px; }
+
+    .match {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      background: var(--surface);
+      border-radius: 8px;
+      margin-bottom: 4px;
+      font-size: 12px;
+    }
+
+    .match-score {
+      background: var(--primary);
+      color: white;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 11px;
+    }
+
+    .match-title { font-weight: 500; }
+    .match-reason { color: var(--text-muted); font-size: 11px; }
+
+    /* Status banner */
+    .banner {
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-weight: 600;
+      text-align: center;
+      font-size: 13px;
+    }
+
+    .banner.success { background: rgba(34, 197, 94, 0.15); color: var(--success); }
+    .banner.duplicate { background: rgba(234, 179, 8, 0.15); color: var(--warning); }
+    .banner.error { background: rgba(239, 68, 68, 0.15); color: var(--error); }
+
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--border);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: inline-block;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Settings panel */
+    .settings-panel {
+      padding: 16px;
+      display: none;
+    }
+
+    .settings-panel.visible { display: block; }
+
+    .settings-panel h2 {
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+
+    .settings-panel label {
+      display: block;
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .settings-panel input {
+      width: 100%;
+      padding: 8px 10px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+
+    .settings-panel input:focus { outline: none; border-color: var(--primary); }
+
+    .settings-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .settings-actions button {
+      flex: 1;
+      padding: 8px;
+      border-radius: 6px;
+      border: none;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .btn-save { background: var(--primary); color: white; }
+    .btn-cancel { background: var(--surface-light); color: var(--text); }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1><span>LinkedIn</span> → Vincere</h1>
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <span class="status-dot" id="statusDot"></span>
+      <button class="settings-btn" id="settingsToggle" title="Instellingen">&#9881;</button>
+    </div>
+  </div>
+
+  <!-- Settings -->
+  <div class="settings-panel" id="settingsPanel">
+    <h2>Instellingen</h2>
+    <label>API Server URL</label>
+    <input type="text" id="apiUrlInput" placeholder="http://localhost:3002">
+    <label>Lusha API Key</label>
+    <input type="text" id="lushaKeyInput" placeholder="Lusha API key (optioneel)">
+    <div class="settings-actions">
+      <button class="btn-cancel" id="settingsCancel">Annuleren</button>
+      <button class="btn-save" id="settingsSave">Opslaan</button>
+    </div>
+  </div>
+
+  <!-- Main content -->
+  <div class="content" id="mainContent">
+    <!-- Filled by JS -->
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -210,6 +210,45 @@ export async function addCandidateNote(candidateId, content) {
 }
 
 /**
+ * Upload a file (e.g. CV PDF) to a candidate in Vincere
+ *
+ * Uses multipart/form-data upload to the candidate's document endpoint.
+ */
+export async function uploadCandidateFile(candidateId, fileBuffer, filename, contentType = 'application/pdf') {
+  const token = await getAccessToken();
+  const url = `${vincereConfig.baseUrl}/candidate/${candidateId}/document`;
+
+  // Build multipart form data manually
+  const boundary = `----FormBoundary${Date.now()}`;
+  const header = `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: ${contentType}\r\n\r\n`;
+  const footer = `\r\n--${boundary}--\r\n`;
+
+  const headerBuffer = Buffer.from(header, 'utf-8');
+  const footerBuffer = Buffer.from(footer, 'utf-8');
+  const body = Buffer.concat([headerBuffer, fileBuffer, footerBuffer]);
+
+  console.log(`[Vincere] Uploading ${filename} (${fileBuffer.length} bytes) to candidate ${candidateId}`);
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'x-api-key': vincereConfig.apiKey,
+      'id-token': token,
+      'Content-Type': `multipart/form-data; boundary=${boundary}`,
+    },
+    body,
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`File upload failed: ${response.status} ${response.statusText} - ${text}`);
+  }
+
+  if (response.status === 204) return { success: true };
+  return response.json();
+}
+
+/**
  * Update an existing candidate
  */
 export async function updateCandidate(candidateId, updates) {

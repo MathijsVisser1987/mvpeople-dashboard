@@ -14,6 +14,8 @@
 
 import { normalizeCandidate, validateCandidate } from './linkedinParser.js';
 import { enrichProfile, matchCandidateToJobs, parseUnstructuredProfile } from './aiEnrichment.js';
+import { enrichContact } from './lusha.js';
+import { generateCV } from './cvGenerator.js';
 import {
   searchCandidateByLinkedIn,
   searchCandidateByEmail,
@@ -21,6 +23,7 @@ import {
   createCandidate,
   getOpenJobs,
   addCandidateToJob,
+  uploadCandidateFile,
 } from './vincereCandidate.js';
 
 /**
@@ -71,7 +74,41 @@ export async function processCandidate(input, options = {}) {
     result.steps[1].status = 'done';
     result.steps[1].detail = `${candidate.firstName} ${candidate.lastName}`;
 
-    // Step 3: Check duplicates (LinkedIn URL → email → naam)
+    // Step 3: Lusha contact enrichment
+    result.steps.push({ step: 'lusha_enrich', status: 'running' });
+    try {
+      if (process.env.LUSHA_API_KEY) {
+        const lushaResult = await enrichContact({
+          firstName: candidate.firstName,
+          lastName: candidate.lastName,
+          company: candidate.currentCompany,
+          linkedinUrl: candidate.linkedinUrl,
+        });
+
+        if (lushaResult.email && !candidate.email) candidate.email = lushaResult.email;
+        if (lushaResult.phone && !candidate.phone) candidate.phone = lushaResult.phone;
+
+        const found = [];
+        if (lushaResult.email) found.push(`email: ${lushaResult.email}`);
+        if (lushaResult.phone) found.push(`tel: ${lushaResult.phone}`);
+
+        result.steps[2].status = 'done';
+        result.steps[2].detail = found.length > 0
+          ? `Gevonden: ${found.join(', ')}`
+          : 'Geen contactgegevens gevonden';
+        result.steps[2].lushaData = lushaResult;
+      } else {
+        result.steps[2].status = 'skipped';
+        result.steps[2].detail = 'Lusha niet geconfigureerd (LUSHA_API_KEY)';
+      }
+    } catch (err) {
+      result.steps[2].status = 'skipped';
+      result.steps[2].detail = `Lusha overgeslagen: ${err.message}`;
+      console.log(`[Agent] Lusha enrichment failed: ${err.message}`);
+    }
+
+    // Step 4: Check duplicates (LinkedIn URL → email → naam)
+    const dupStepIdx = result.steps.length;
     result.steps.push({ step: 'duplicate_check', status: 'running' });
     let existingCandidate = null;
     let matchedOn = null;
@@ -82,7 +119,7 @@ export async function processCandidate(input, options = {}) {
       if (existingCandidate) matchedOn = 'LinkedIn URL';
     }
 
-    // Second: check by email
+    // Second: check by email (including Lusha-enriched email)
     if (!existingCandidate && candidate.email) {
       existingCandidate = await searchCandidateByEmail(candidate.email);
       if (existingCandidate) matchedOn = 'email';
@@ -95,25 +132,26 @@ export async function processCandidate(input, options = {}) {
         existingCandidate = nameMatches[0];
         matchedOn = 'naam';
       } else if (nameMatches.length > 1) {
-        result.steps[2].status = 'warning';
-        result.steps[2].detail = `${nameMatches.length} mogelijke duplicaten gevonden op naam`;
-        result.steps[2].duplicates = nameMatches;
+        result.steps[dupStepIdx].status = 'warning';
+        result.steps[dupStepIdx].detail = `${nameMatches.length} mogelijke duplicaten gevonden op naam`;
+        result.steps[dupStepIdx].duplicates = nameMatches;
       }
     }
 
     if (existingCandidate && !options.forceCreate) {
-      result.steps[2].status = 'duplicate';
-      result.steps[2].detail = `Kandidaat bestaat al in Vincere (ID: ${existingCandidate.id}, gevonden op ${matchedOn})`;
+      result.steps[dupStepIdx].status = 'duplicate';
+      result.steps[dupStepIdx].detail = `Kandidaat bestaat al in Vincere (ID: ${existingCandidate.id}, gevonden op ${matchedOn})`;
       result.vincereId = existingCandidate.id;
       result.status = 'duplicate';
       result.duplicate = existingCandidate;
       result.matchedOn = matchedOn;
       return result;
     }
-    result.steps[2].status = result.steps[2].status || 'done';
-    result.steps[2].detail = result.steps[2].detail || 'Geen duplicaten gevonden';
+    result.steps[dupStepIdx].status = result.steps[dupStepIdx].status || 'done';
+    result.steps[dupStepIdx].detail = result.steps[dupStepIdx].detail || 'Geen duplicaten gevonden';
 
-    // Step 4: AI Enrichment
+    // Step 5: AI Enrichment
+    const aiStepIdx = result.steps.length;
     result.steps.push({ step: 'ai_enrichment', status: 'running' });
     let aiAnalysis = null;
     try {
@@ -121,16 +159,17 @@ export async function processCandidate(input, options = {}) {
       candidate.aiAnalysis = formatAiAnalysis(aiAnalysis);
       candidate.skills = [...new Set([...(candidate.skills || []), ...(aiAnalysis.skills || [])])];
 
-      result.steps[3].status = 'done';
-      result.steps[3].detail = `${aiAnalysis.seniorityLevel} - ${aiAnalysis.suggestedTitles?.slice(0, 3).join(', ')}`;
-      result.steps[3].analysis = aiAnalysis;
+      result.steps[aiStepIdx].status = 'done';
+      result.steps[aiStepIdx].detail = `${aiAnalysis.seniorityLevel} - ${aiAnalysis.suggestedTitles?.slice(0, 3).join(', ')}`;
+      result.steps[aiStepIdx].analysis = aiAnalysis;
     } catch (err) {
-      result.steps[3].status = 'skipped';
-      result.steps[3].detail = `AI enrichment overgeslagen: ${err.message}`;
+      result.steps[aiStepIdx].status = 'skipped';
+      result.steps[aiStepIdx].detail = `AI enrichment overgeslagen: ${err.message}`;
       console.log(`[Agent] AI enrichment failed: ${err.message}`);
     }
 
-    // Step 5: Job Matching
+    // Step 6: Job Matching
+    const matchStepIdx = result.steps.length;
     result.steps.push({ step: 'job_matching', status: 'running' });
     try {
       const openJobs = await getOpenJobs();
@@ -138,27 +177,45 @@ export async function processCandidate(input, options = {}) {
         const matches = await matchCandidateToJobs(candidate, openJobs);
         candidate.jobMatches = matches;
         result.jobMatches = matches;
-        result.steps[4].status = 'done';
-        result.steps[4].detail = `${matches.length} matches gevonden uit ${openJobs.length} vacatures`;
+        result.steps[matchStepIdx].status = 'done';
+        result.steps[matchStepIdx].detail = `${matches.length} matches gevonden uit ${openJobs.length} vacatures`;
       } else {
-        result.steps[4].status = 'skipped';
-        result.steps[4].detail = 'Geen openstaande vacatures gevonden';
+        result.steps[matchStepIdx].status = 'skipped';
+        result.steps[matchStepIdx].detail = 'Geen openstaande vacatures gevonden';
       }
     } catch (err) {
-      result.steps[4].status = 'skipped';
-      result.steps[4].detail = `Job matching overgeslagen: ${err.message}`;
+      result.steps[matchStepIdx].status = 'skipped';
+      result.steps[matchStepIdx].detail = `Job matching overgeslagen: ${err.message}`;
       console.log(`[Agent] Job matching failed: ${err.message}`);
     }
 
-    // Step 6: Create in Vincere
+    // Step 7: Create in Vincere
+    const createStepIdx = result.steps.length;
     result.steps.push({ step: 'create_vincere', status: 'running' });
     const vincereResult = await createCandidate(candidate);
     result.vincereId = vincereResult.id;
-    result.steps[5].status = 'done';
-    result.steps[5].detail = `Kandidaat aangemaakt met ID: ${vincereResult.id}`;
+    result.steps[createStepIdx].status = 'done';
+    result.steps[createStepIdx].detail = `Kandidaat aangemaakt met ID: ${vincereResult.id}`;
 
-    // Step 7: Auto-apply to matched jobs (if enabled)
+    // Step 8: Generate CV in MVPeople format and upload to Vincere
+    const cvStepIdx = result.steps.length;
+    result.steps.push({ step: 'cv_generate', status: 'running' });
+    try {
+      const cvBuffer = await generateCV(candidate, aiAnalysis);
+      const filename = `CV_${candidate.firstName}_${candidate.lastName}_MVPeople.pdf`;
+      await uploadCandidateFile(result.vincereId, cvBuffer, filename);
+
+      result.steps[cvStepIdx].status = 'done';
+      result.steps[cvStepIdx].detail = `${filename} geüpload (${Math.round(cvBuffer.length / 1024)} KB)`;
+    } catch (err) {
+      result.steps[cvStepIdx].status = 'skipped';
+      result.steps[cvStepIdx].detail = `CV generatie overgeslagen: ${err.message}`;
+      console.log(`[Agent] CV generation failed: ${err.message}`);
+    }
+
+    // Step 9: Auto-apply to matched jobs (if enabled)
     if (options.autoApply && result.jobMatches.length > 0) {
+      const applyStepIdx = result.steps.length;
       result.steps.push({ step: 'auto_apply', status: 'running' });
       const applied = [];
       for (const match of result.jobMatches.slice(0, 3)) {
@@ -169,8 +226,8 @@ export async function processCandidate(input, options = {}) {
           console.log(`[Agent] Failed to apply to job ${match.jobId}: ${err.message}`);
         }
       }
-      result.steps[6].status = 'done';
-      result.steps[6].detail = `Aangemeld bij ${applied.length} vacatures`;
+      result.steps[applyStepIdx].status = 'done';
+      result.steps[applyStepIdx].detail = `Aangemeld bij ${applied.length} vacatures`;
     }
 
     result.status = 'success';
