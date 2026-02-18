@@ -58,8 +58,13 @@ Antwoord altijd in het Nederlands, in JSON format met deze velden:
   "tags": ["korte", "tags", "voor", "vincere", "classificatie"],
   "salaryIndication": "Geschatte salarisrange op basis van ervaring en functie (optioneel)",
   "redFlags": ["eventuele aandachtspunten, of lege array"],
-  "matchingKeywords": ["zoektermen", "voor", "job", "matching"]
-}`
+  "matchingKeywords": ["zoektermen", "voor", "job", "matching"],
+  "functionalExpertise": "Het hoofdgebied van expertise. Kies EXACT één uit: Accounting & Finance | Administration & Office Support | Banking & Financial Services | Construction & Engineering | Customer Service | Education & Training | Executive Management | Healthcare & Medical | Hospitality & Tourism | Human Resources | Information Technology | Legal | Logistics & Supply Chain | Manufacturing & Production | Marketing & Communications | Media & Creative | Mining & Resources | Real Estate & Property | Retail & Consumer | Sales & Business Development | Science & Research | Trades & Services | Transport & Automotive",
+  "subFunctionalExpertise": "Een specifiekere sub-expertise binnen het hoofdgebied. Voorbeelden per categorie: IT → Software Development, Data Engineering, Cloud & DevOps, Cybersecurity, IT Support, IT Management, ERP/CRM, AI & Machine Learning. Finance → Financial Analysis, Controlling, Tax, Audit, Treasury. Sales → Account Management, Business Development, Inside Sales, Sales Management. HR → Recruitment, HR Business Partner, Learning & Development, Compensation & Benefits. Marketing → Digital Marketing, Content, Brand Management, Marketing Analytics. Kies de meest passende sub-expertise."
+}
+
+BELANGRIJK voor functionalExpertise: Gebruik EXACT de naam uit de lijst hierboven (Engelse benaming). Dit wordt direct in Vincere gezet als classificatie.
+BELANGRIJK voor subFunctionalExpertise: Wees zo specifiek mogelijk op basis van het profiel.`
       },
       {
         role: 'user',

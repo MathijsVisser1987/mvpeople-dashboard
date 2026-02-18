@@ -281,6 +281,8 @@ function formatAiAnalysis(analysis) {
   const lines = [];
   if (analysis.summary) lines.push(`Samenvatting: ${analysis.summary}`);
   if (analysis.seniorityLevel) lines.push(`Niveau: ${analysis.seniorityLevel}`);
+  if (analysis.functionalExpertise) lines.push(`Functional Expertise: ${analysis.functionalExpertise}`);
+  if (analysis.subFunctionalExpertise) lines.push(`Sub Functional Expertise: ${analysis.subFunctionalExpertise}`);
   if (analysis.suggestedTitles?.length > 0) lines.push(`Functietitels: ${analysis.suggestedTitles.join(', ')}`);
   if (analysis.industries?.length > 0) lines.push(`Sectoren: ${analysis.industries.join(', ')}`);
   if (analysis.highlights?.length > 0) {

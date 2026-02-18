@@ -176,6 +176,14 @@ export async function createCandidate(candidateData) {
     payload.industry = ai.industries[0];
   }
 
+  // ── Functional Expertise (AI-determined) ──
+  if (ai?.functionalExpertise) {
+    payload.functional_expertise = ai.functionalExpertise;
+  }
+  if (ai?.subFunctionalExpertise) {
+    payload.sub_functional_expertise = ai.subFunctionalExpertise;
+  }
+
   // ── Education summary ──
   if (candidateData.education?.length > 0) {
     payload.education_summary = candidateData.education
