@@ -60,7 +60,7 @@ export default function TVSlideshow() {
       case 'competition':
         return <CompetitionSlide members={leaderboard} />;
       case 'recent-wins':
-        return <RecentWinsSlide celebrations={celebrations} />;
+        return <RecentWinsSlide celebrations={celebrations} activityWins={data?.recentActivityWins} />;
       case 'team-targets':
         return <TeamTargetsSlide stats={teamStats} members={leaderboard} />;
       default:

@@ -59,6 +59,27 @@ class ActivityService {
     return activity.created_by_id || null;
   }
 
+  // Activity names worth highlighting as "wins"
+  static NOTABLE_ACTIVITIES = new Set([
+    'MOVE_CANDIDATE_TO_1ST_INTERVIEW',
+    'MOVE_CANDIDATE_TO_2ND_INTERVIEW',
+    'MOVE_CANDIDATE_TO_3RD_INTERVIEW',
+    'MEETING_ARRANGED_WITH_CONTACT',
+    'PLACEMENT_PERMANENT',
+    'PLACEMENT_CONTRACT',
+    'CV_SENT_TO_CLIENT',
+  ]);
+
+  static ACTIVITY_LABELS = {
+    MOVE_CANDIDATE_TO_1ST_INTERVIEW: '1st Interview',
+    MOVE_CANDIDATE_TO_2ND_INTERVIEW: '2nd Interview',
+    MOVE_CANDIDATE_TO_3RD_INTERVIEW: '3rd Interview',
+    MEETING_ARRANGED_WITH_CONTACT: 'Client Meeting',
+    PLACEMENT_PERMANENT: 'Permanent Placement',
+    PLACEMENT_CONTRACT: 'Contract Placement',
+    CV_SENT_TO_CLIENT: 'CV Sent',
+  };
+
   // Aggregate activities for a single user
   _aggregateUserActivities(activities) {
     const result = {
@@ -67,6 +88,7 @@ class ActivityService {
       byType: {},
       byCategory: {},
       byActivityName: {},  // counts by activity_name (for KPI tracking)
+      notableActivities: [], // recent interviews, meetings, placements
     };
 
     // Initialize categories
@@ -112,7 +134,28 @@ class ActivityService {
           result.byCategory[catKey].types[typeKey] = (result.byCategory[catKey].types[typeKey] || 0) + 1;
         }
       }
+
+      // Collect notable activities with raw data for Recent Wins
+      if (activity.activity_name && ActivityService.NOTABLE_ACTIVITIES.has(activity.activity_name)) {
+        result.notableActivities.push({
+          activityName: activity.activity_name,
+          label: ActivityService.ACTIVITY_LABELS[activity.activity_name] || activity.activity_name,
+          entityType: activity.entity_type || null,
+          candidateName: activity.candidate_name || activity.candidate?.name || null,
+          companyName: activity.company_name || activity.company?.name || null,
+          contactName: activity.contact_name || activity.contact?.name || null,
+          jobTitle: activity.position_title || activity.job_title || activity.job?.title || null,
+          content: activity.content || activity.subject || null,
+          createdDate: activity.created_date || activity.insert_date || null,
+        });
+      }
     }
+
+    // Sort notable by date descending, keep last 10
+    result.notableActivities.sort((a, b) =>
+      new Date(b.createdDate || 0) - new Date(a.createdDate || 0)
+    );
+    result.notableActivities = result.notableActivities.slice(0, 10);
 
     return result;
   }

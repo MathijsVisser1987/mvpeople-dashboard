@@ -285,8 +285,27 @@ export async function buildLeaderboard() {
     celebrations = await celebrationService.getCelebrations(5);
   } catch {}
 
+  // Collect recent notable activities (interviews, meetings, etc.) across all members
+  const recentActivityWins = [];
+  for (const member of teamMembers) {
+    const activities = activityStats[member.vincereId] || {};
+    if (activities.notableActivities) {
+      for (const act of activities.notableActivities) {
+        recentActivityWins.push({
+          ...act,
+          recruiterName: member.shortName,
+          recruiterColor: member.color,
+          recruiterAvatar: member.avatar,
+          recruiterPhoto: member.photo || null,
+        });
+      }
+    }
+  }
+  recentActivityWins.sort((a, b) => new Date(b.createdDate || 0) - new Date(a.createdDate || 0));
+
   const result = {
     leaderboard,
+    recentActivityWins: recentActivityWins.slice(0, 15),
     teamStats: {
       totalDeals: leaderboard.reduce((s, m) => s + m.deals, 0),
       totalCalls: leaderboard.reduce((s, m) => s + m.calls, 0),
