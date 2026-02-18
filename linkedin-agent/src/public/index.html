@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LinkedIn → Vincere AI Agent</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface-light: #334155;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --success: #22c55e;
+      --warning: #eab308;
+      --error: #ef4444;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --border: #475569;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 32px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    header h1 {
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    header h1 span { color: var(--primary); }
+
+    .auth-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: 8px;
+      background: var(--surface);
+      font-size: 14px;
+    }
+
+    .auth-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--error);
+    }
+
+    .auth-dot.connected { background: var(--success); }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 24px;
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 4px;
+    }
+
+    .tab {
+      flex: 1;
+      padding: 12px;
+      text-align: center;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-muted);
+      transition: all 0.2s;
+      border: none;
+      background: none;
+    }
+
+    .tab:hover { color: var(--text); }
+    .tab.active { background: var(--primary); color: white; }
+
+    /* Forms */
+    .panel {
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .panel h2 {
+      font-size: 18px;
+      margin-bottom: 8px;
+    }
+
+    .panel p.desc {
+      color: var(--text-muted);
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    input, textarea {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 14px;
+      font-family: inherit;
+    }
+
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+
+    textarea { min-height: 120px; resize: vertical; }
+
+    .checkbox-row {
+      display: flex;
+      gap: 20px;
+      margin-top: 16px;
+    }
+
+    .checkbox-row label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 14px;
+      cursor: pointer;
+      color: var(--text-muted);
+    }
+
+    .checkbox-row input[type="checkbox"] {
+      width: auto;
+      accent-color: var(--primary);
+    }
+
+    button.submit {
+      width: 100%;
+      padding: 14px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: background 0.2s;
+    }
+
+    button.submit:hover { background: var(--primary-hover); }
+    button.submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Results */
+    .result {
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .result h3 { margin-bottom: 16px; font-size: 16px; }
+
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      background: var(--bg);
+      border-radius: 8px;
+      font-size: 14px;
+    }
+
+    .step-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+
+    .step-icon.done { background: var(--success); color: white; }
+    .step-icon.error { background: var(--error); color: white; }
+    .step-icon.warning { background: var(--warning); color: black; }
+    .step-icon.skipped { background: var(--surface-light); color: var(--text-muted); }
+    .step-icon.duplicate { background: var(--warning); color: black; }
+    .step-icon.running { background: var(--primary); color: white; }
+
+    .step-name { font-weight: 500; min-width: 120px; }
+    .step-detail { color: var(--text-muted); }
+
+    .job-matches {
+      margin-top: 16px;
+    }
+
+    .match {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      background: var(--bg);
+      border-radius: 8px;
+      margin-bottom: 6px;
+    }
+
+    .match-score {
+      background: var(--primary);
+      color: white;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      min-width: 48px;
+      text-align: center;
+    }
+
+    .match-title { font-weight: 500; }
+    .match-reason { color: var(--text-muted); font-size: 13px; }
+
+    .status-banner {
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-weight: 500;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+
+    .status-banner.success { background: rgba(34, 197, 94, 0.15); color: var(--success); }
+    .status-banner.duplicate { background: rgba(234, 179, 8, 0.15); color: var(--warning); }
+    .status-banner.error { background: rgba(239, 68, 68, 0.15); color: var(--error); }
+
+    .hidden { display: none; }
+
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-overlay {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      padding: 48px;
+      color: var(--text-muted);
+    }
+
+    .loading-overlay .spinner {
+      width: 40px;
+      height: 40px;
+      border-width: 3px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1><span>LinkedIn</span> → Vincere AI Agent</h1>
+      <div class="auth-status" id="authStatus">
+        <div class="auth-dot" id="authDot"></div>
+        <span id="authText">Checking...</span>
+      </div>
+    </header>
+
+    <div class="tabs">
+      <button class="tab active" data-tab="structured" onclick="switchTab('structured')">Gestructureerd</button>
+      <button class="tab" data-tab="freetext" onclick="switchTab('freetext')">Vrije tekst (AI)</button>
+      <button class="tab" data-tab="batch" onclick="switchTab('batch')">Batch import</button>
+    </div>
+
+    <!-- Structured input -->
+    <div class="panel" id="tab-structured">
+      <h2>Kandidaat toevoegen</h2>
+      <p class="desc">Voer de LinkedIn kandidaat gegevens in. De AI verrijkt het profiel automatisch.</p>
+      <form id="structuredForm" onsubmit="submitStructured(event)">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Voornaam *</label>
+            <input name="firstName" required placeholder="Jan">
+          </div>
+          <div class="form-group">
+            <label>Achternaam *</label>
+            <input name="lastName" required placeholder="de Vries">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Email</label>
+            <input name="email" type="email" placeholder="jan@voorbeeld.nl">
+          </div>
+          <div class="form-group">
+            <label>Telefoon</label>
+            <input name="phone" placeholder="+31 6 12345678">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>LinkedIn URL</label>
+          <input name="linkedinUrl" placeholder="https://linkedin.com/in/jan-de-vries">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Huidige functie</label>
+            <input name="currentTitle" placeholder="Senior Software Engineer">
+          </div>
+          <div class="form-group">
+            <label>Huidig bedrijf</label>
+            <input name="currentCompany" placeholder="Acme B.V.">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Locatie</label>
+          <input name="location" placeholder="Amsterdam">
+        </div>
+        <div class="form-group">
+          <label>Skills (komma-gescheiden)</label>
+          <input name="skills" placeholder="Python, React, AWS, Agile">
+        </div>
+        <div class="form-group">
+          <label>Samenvatting / Over</label>
+          <textarea name="summary" placeholder="Korte omschrijving van de kandidaat, ervaring, etc."></textarea>
+        </div>
+        <div class="checkbox-row">
+          <label><input type="checkbox" name="autoApply"> Auto-apply bij matching vacatures</label>
+          <label><input type="checkbox" name="forceCreate"> Aanmaken ondanks duplicaat</label>
+        </div>
+        <button type="submit" class="submit" id="structuredBtn">Kandidaat verwerken</button>
+      </form>
+    </div>
+
+    <!-- Free text input -->
+    <div class="panel hidden" id="tab-freetext">
+      <h2>Profiel plakken (AI parsing)</h2>
+      <p class="desc">Kopieer en plak een LinkedIn profiel of andere tekst. De AI extraheert automatisch alle gegevens.</p>
+      <form id="freetextForm" onsubmit="submitFreetext(event)">
+        <div class="form-group">
+          <label>Profiel tekst</label>
+          <textarea name="text" rows="12" required placeholder="Plak hier het LinkedIn profiel...
+
+Voorbeeld:
+Jan de Vries
+Senior Software Engineer bij Acme B.V.
+Amsterdam, Nederland
+
+Over: 10+ jaar ervaring in software development...
+Ervaring: ...
+Opleiding: ..."></textarea>
+        </div>
+        <div class="checkbox-row">
+          <label><input type="checkbox" name="autoApply"> Auto-apply bij matching vacatures</label>
+          <label><input type="checkbox" name="forceCreate"> Aanmaken ondanks duplicaat</label>
+        </div>
+        <button type="submit" class="submit" id="freetextBtn">Verwerken met AI</button>
+      </form>
+    </div>
+
+    <!-- Batch input -->
+    <div class="panel hidden" id="tab-batch">
+      <h2>Batch import</h2>
+      <p class="desc">Plak een JSON array van kandidaten voor bulk verwerking (max 50).</p>
+      <form id="batchForm" onsubmit="submitBatch(event)">
+        <div class="form-group">
+          <label>Kandidaten JSON</label>
+          <textarea name="json" rows="12" required placeholder='[
+  {
+    "firstName": "Jan",
+    "lastName": "de Vries",
+    "email": "jan@voorbeeld.nl",
+    "currentTitle": "Software Engineer",
+    "currentCompany": "Acme B.V.",
+    "linkedinUrl": "https://linkedin.com/in/jan-de-vries"
+  },
+  {
+    "firstName": "Lisa",
+    "lastName": "Bakker",
+    "currentTitle": "Product Manager",
+    "location": "Rotterdam"
+  }
+]'></textarea>
+        </div>
+        <div class="checkbox-row">
+          <label><input type="checkbox" name="autoApply"> Auto-apply bij matching vacatures</label>
+          <label><input type="checkbox" name="forceCreate"> Aanmaken ondanks duplicaat</label>
+        </div>
+        <button type="submit" class="submit" id="batchBtn">Batch verwerken</button>
+      </form>
+    </div>
+
+    <!-- Results area -->
+    <div id="results"></div>
+  </div>
+
+  <script>
+    // Check auth status on load
+    async function checkAuth() {
+      try {
+        const res = await fetch('/auth/vincere/status');
+        const data = await res.json();
+        const dot = document.getElementById('authDot');
+        const text = document.getElementById('authText');
+        if (data.authenticated) {
+          dot.classList.add('connected');
+          text.textContent = 'Vincere verbonden';
+        } else {
+          text.innerHTML = '<a href="/auth/vincere/login" style="color: var(--primary)">Verbinden met Vincere</a>';
+        }
+      } catch {
+        document.getElementById('authText').textContent = 'Status onbekend';
+      }
+    }
+    checkAuth();
+
+    // Tab switching
+    function switchTab(tab) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+      document.querySelectorAll('.panel').forEach(p => p.classList.add('hidden'));
+      document.getElementById(`tab-${tab}`).classList.remove('hidden');
+    }
+
+    // Submit structured form
+    async function submitStructured(e) {
+      e.preventDefault();
+      const form = e.target;
+      const data = Object.fromEntries(new FormData(form));
+
+      // Convert skills string to array
+      if (data.skills) data.skills = data.skills.split(',').map(s => s.trim());
+
+      const params = new URLSearchParams();
+      if (data.autoApply) params.set('autoApply', 'true');
+      if (data.forceCreate) params.set('forceCreate', 'true');
+      delete data.autoApply;
+      delete data.forceCreate;
+
+      await sendRequest('/api/agent/process?' + params, data, 'structuredBtn');
+    }
+
+    // Submit freetext form
+    async function submitFreetext(e) {
+      e.preventDefault();
+      const form = e.target;
+      const data = Object.fromEntries(new FormData(form));
+
+      const params = new URLSearchParams();
+      if (data.autoApply) params.set('autoApply', 'true');
+      if (data.forceCreate) params.set('forceCreate', 'true');
+
+      await sendRequest('/api/agent/process?' + params, { text: data.text }, 'freetextBtn');
+    }
+
+    // Submit batch form
+    async function submitBatch(e) {
+      e.preventDefault();
+      const form = e.target;
+      const data = Object.fromEntries(new FormData(form));
+
+      let candidates;
+      try {
+        candidates = JSON.parse(data.json);
+      } catch {
+        alert('Ongeldige JSON. Controleer het format.');
+        return;
+      }
+
+      const options = {};
+      if (data.autoApply) options.autoApply = true;
+      if (data.forceCreate) options.forceCreate = true;
+
+      await sendRequest('/api/agent/batch', { candidates, options }, 'batchBtn');
+    }
+
+    // Generic request handler
+    async function sendRequest(url, body, btnId) {
+      const btn = document.getElementById(btnId);
+      const results = document.getElementById('results');
+
+      btn.disabled = true;
+      btn.textContent = 'Verwerken...';
+      results.innerHTML = `
+        <div class="loading-overlay">
+          <div class="spinner"></div>
+          <div>AI agent is bezig met verwerken...</div>
+        </div>
+      `;
+
+      try {
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        renderResult(data);
+      } catch (err) {
+        results.innerHTML = `<div class="status-banner error">Fout: ${err.message}</div>`;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = btn.dataset?.originalText || btn.textContent.replace('Verwerken...', 'Verwerken');
+        // Restore button text
+        if (btnId === 'structuredBtn') btn.textContent = 'Kandidaat verwerken';
+        if (btnId === 'freetextBtn') btn.textContent = 'Verwerken met AI';
+        if (btnId === 'batchBtn') btn.textContent = 'Batch verwerken';
+      }
+    }
+
+    // Render single result
+    function renderResult(data) {
+      const results = document.getElementById('results');
+
+      // Batch result
+      if (data.items) {
+        results.innerHTML = `
+          <div class="status-banner ${data.errors > 0 ? 'error' : 'success'}">
+            Batch: ${data.success} aangemaakt, ${data.duplicates} duplicaten, ${data.errors} fouten
+          </div>
+          ${data.items.map((item, i) => renderSingleResult(item, i + 1)).join('')}
+        `;
+        return;
+      }
+
+      // Single result
+      results.innerHTML = renderSingleResult(data);
+    }
+
+    function renderSingleResult(data, index = null) {
+      const stepNames = {
+        parse: 'Parsing',
+        normalize: 'Normaliseren',
+        duplicate_check: 'Duplicaat check',
+        ai_enrichment: 'AI Verrijking',
+        job_matching: 'Job Matching',
+        create_vincere: 'Vincere aanmaken',
+        auto_apply: 'Auto-apply',
+      };
+
+      const stepIcons = {
+        done: '&#10003;',
+        error: '&#10007;',
+        warning: '!',
+        skipped: '-',
+        duplicate: '=',
+        running: '...',
+      };
+
+      const statusText = {
+        success: 'Kandidaat succesvol aangemaakt in Vincere!',
+        duplicate: 'Kandidaat bestaat al in Vincere',
+        validation_error: 'Validatie mislukt',
+        error: 'Er is een fout opgetreden',
+      };
+
+      const statusClass = data.status === 'success' ? 'success'
+        : data.status === 'duplicate' ? 'duplicate'
+        : 'error';
+
+      let html = `<div class="result">`;
+
+      if (index) html += `<h3>Kandidaat ${index}</h3>`;
+
+      html += `<div class="status-banner ${statusClass}">${statusText[data.status] || data.status}${data.vincereId ? ` (ID: ${data.vincereId})` : ''}</div>`;
+
+      if (data.steps?.length > 0) {
+        html += `<div class="steps">`;
+        for (const step of data.steps) {
+          html += `
+            <div class="step">
+              <div class="step-icon ${step.status}">${stepIcons[step.status] || '?'}</div>
+              <span class="step-name">${stepNames[step.step] || step.step}</span>
+              <span class="step-detail">${step.detail || ''}</span>
+            </div>
+          `;
+        }
+        html += `</div>`;
+      }
+
+      if (data.jobMatches?.length > 0) {
+        html += `<div class="job-matches"><h3>Vacature matches</h3>`;
+        for (const match of data.jobMatches) {
+          html += `
+            <div class="match">
+              <span class="match-score">${match.score}%</span>
+              <div>
+                <div class="match-title">${match.title}</div>
+                <div class="match-reason">${match.reason}</div>
+              </div>
+            </div>
+          `;
+        }
+        html += `</div>`;
+      }
+
+      html += `</div>`;
+      return html;
+    }
+  </script>
+</body>
+</html>
