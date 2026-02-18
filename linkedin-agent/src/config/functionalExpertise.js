@@ -297,7 +297,7 @@ export function getSubExpertise(functionalExpertise) {
  * Build the prompt text for the AI with all expertise options
  */
 export function buildExpertisePrompt() {
-  let prompt = 'FUNCTIONAL EXPERTISE (kies EXACT één):\n';
+  let prompt = 'FUNCTIONAL EXPERTISE (kies één of meerdere):\n';
   prompt += getFunctionalExpertiseList().join(' | ');
   prompt += '\n\nSUB FUNCTIONAL EXPERTISE per categorie:\n';
 

@@ -44,7 +44,7 @@ export async function enrichProfile(candidate) {
   try {
     const vincereExpertise = await getFunctionalExpertise();
     if (vincereExpertise.functional.length > 0) {
-      let prompt = 'FUNCTIONAL EXPERTISE uit jullie Vincere (kies EXACT één):\n';
+      let prompt = 'FUNCTIONAL EXPERTISE uit Vincere (kies één of meerdere):\n';
       prompt += vincereExpertise.functional.join(' | ');
       const subEntries = Object.entries(vincereExpertise.sub).filter(([, subs]) => subs.length > 0);
       if (subEntries.length > 0) {
@@ -86,11 +86,16 @@ Antwoord altijd in het Nederlands, in JSON format met deze velden:
   "salaryIndication": "Geschatte salarisrange op basis van ervaring en functie (optioneel)",
   "redFlags": ["eventuele aandachtspunten, of lege array"],
   "matchingKeywords": ["zoektermen", "voor", "job", "matching"],
-  "functionalExpertise": "Kies EXACT één waarde uit de FUNCTIONAL EXPERTISE lijst hieronder",
-  "subFunctionalExpertise": "Kies EXACT één waarde uit de SUB FUNCTIONAL EXPERTISE lijst bij de gekozen functional expertise"
+  "functionalExpertise": ["Array van één of meerdere waarden uit de FUNCTIONAL EXPERTISE lijst hieronder"],
+  "subFunctionalExpertise": ["Array van één of meerdere waarden uit de SUB FUNCTIONAL EXPERTISE lijsten, passend bij de gekozen functional expertise(s)"]
 }
 
-KRITISCH: functionalExpertise en subFunctionalExpertise worden direct als code in Vincere gezet. Je MOET EXACT een waarde kiezen uit onderstaande lijsten. Exact dezelfde spelling, geen variaties of vertalingen.
+KRITISCH voor functionalExpertise en subFunctionalExpertise:
+- Dit zijn ARRAYS - geef altijd een array terug, ook bij één waarde
+- Kandidaten kunnen MEERDERE expertise gebieden hebben (bijv. iemand in IT Sales krijgt zowel "Information Technology" als "Sales & Business Development")
+- Kies alle relevante expertise(s) op basis van het profiel
+- De waarden worden direct als code in Vincere gezet - gebruik EXACT de spelling uit de lijsten, geen variaties of vertalingen
+- Kies bij subFunctionalExpertise waarden die passen bij de gekozen functionalExpertise categorieën
 
 ${expertisePrompt}`
       },

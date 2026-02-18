@@ -275,12 +275,14 @@ export async function createCandidate(candidateData) {
     payload.industry = ai.industries[0];
   }
 
-  // ── Functional Expertise (AI-determined) ──
+  // ── Functional Expertise (AI-determined, can be multiple) ──
   if (ai?.functionalExpertise) {
-    payload.functional_expertise = ai.functionalExpertise;
+    const fe = Array.isArray(ai.functionalExpertise) ? ai.functionalExpertise : [ai.functionalExpertise];
+    payload.functional_expertise = fe;
   }
   if (ai?.subFunctionalExpertise) {
-    payload.sub_functional_expertise = ai.subFunctionalExpertise;
+    const sfe = Array.isArray(ai.subFunctionalExpertise) ? ai.subFunctionalExpertise : [ai.subFunctionalExpertise];
+    payload.sub_functional_expertise = sfe;
   }
 
   // ── Education summary ──
