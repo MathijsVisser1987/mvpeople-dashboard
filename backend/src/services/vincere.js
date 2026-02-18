@@ -51,13 +51,17 @@ class VincereService {
     this.refreshToken = null;
     this.tokenExpiry = null;
     this._loadPromise = null;
+    this._tokensLoadedAt = null; // Track when tokens were loaded for staleness check
   }
 
   // --- Token persistence ---
 
   async _loadTokens() {
-    // Use promise-based guard so concurrent callers all await the same load
-    if (this._loadPromise) return this._loadPromise;
+    // Re-read from Redis every 10 minutes (warm Vercel instances may have stale tokens)
+    const STALE_MS = 10 * 60 * 1000;
+    if (this._loadPromise && this._tokensLoadedAt && Date.now() - this._tokensLoadedAt < STALE_MS) {
+      return this._loadPromise;
+    }
     this._loadPromise = this._doLoadTokens();
     return this._loadPromise;
   }
@@ -98,7 +102,14 @@ class VincereService {
         }
       }
     } finally {
-      // Don't clear _loadPromise — Vincere tokens persist for the lifetime of the instance
+      if (this.idToken && this.refreshToken) {
+        this._tokensLoadedAt = Date.now();
+      } else {
+        // No tokens found — clear promise so next call retries from Redis
+        this._loadPromise = null;
+        this._tokensLoadedAt = null;
+        console.log('[Vincere] No tokens loaded — will retry on next request');
+      }
     }
   }
 
@@ -165,6 +176,8 @@ class VincereService {
     this.accessToken = data.access_token;
     this.refreshToken = data.refresh_token;
     this.tokenExpiry = new Date(Date.now() + (data.expires_in || 1800) * 1000);
+    this._loadPromise = null; // Clear so next _loadTokens() sees fresh tokens
+    this._tokensLoadedAt = Date.now();
     await this._saveTokens();
     console.log('[Vincere] Tokens obtained successfully');
     return data;
@@ -175,18 +188,35 @@ class VincereService {
       throw new Error('No refresh token available. Complete OAuth flow first.');
     }
 
-    const res = await fetch(`${this.idServer}/oauth2/token`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: this.clientId,
-        grant_type: 'refresh_token',
-        refresh_token: this.refreshToken,
-      }),
-    });
+    let res;
+    try {
+      res = await fetch(`${this.idServer}/oauth2/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: this.clientId,
+          grant_type: 'refresh_token',
+          refresh_token: this.refreshToken,
+        }),
+      });
+    } catch (networkErr) {
+      console.error('[Vincere] Token refresh network error:', networkErr.message);
+      throw networkErr;
+    }
 
     if (!res.ok) {
       const err = await res.text();
+      console.error(`[Vincere] Token refresh failed: ${res.status} ${err}`);
+      // 400/401/403 = refresh token is invalid/expired — clear tokens so isAuthenticated() returns false
+      if (res.status === 400 || res.status === 401 || res.status === 403) {
+        console.error('[Vincere] Refresh token rejected — clearing tokens. Re-authenticate via OAuth.');
+        this.idToken = null;
+        this.accessToken = null;
+        this.refreshToken = null;
+        this.tokenExpiry = null;
+        this._loadPromise = null;
+        this._tokensLoadedAt = null;
+      }
       throw new Error(`Vincere token refresh failed: ${res.status} ${err}`);
     }
 
@@ -194,6 +224,7 @@ class VincereService {
     this.idToken = data.id_token;
     this.accessToken = data.access_token;
     this.tokenExpiry = new Date(Date.now() + (data.expires_in || 1800) * 1000);
+    this._tokensLoadedAt = Date.now();
     await this._saveTokens();
     console.log('[Vincere] Tokens refreshed');
   }
