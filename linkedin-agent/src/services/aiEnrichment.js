@@ -10,6 +10,7 @@
 
 import OpenAI from 'openai';
 import { openaiConfig } from '../config/vincere.js';
+import { buildExpertisePrompt as buildFallbackExpertisePrompt } from '../config/functionalExpertise.js';
 import { getFunctionalExpertise } from './vincereCandidate.js';
 
 let openai = null;
@@ -38,32 +39,30 @@ export async function enrichProfile(candidate) {
 
   const profileText = buildProfileText(candidate);
 
-  // Fetch actual functional expertise values from Vincere
-  let expertisePrompt = '';
+  // Try to get expertise from Vincere API, fallback to hardcoded list
+  let expertisePrompt;
   try {
-    const expertise = await getFunctionalExpertise();
-    if (expertise.functional.length > 0) {
-      expertisePrompt = `\n\nBESCHIKBARE FUNCTIONAL EXPERTISE IN VINCERE (kies EXACT één hieruit):\n${expertise.functional.join(' | ')}`;
-
-      // Add sub-expertise per category
-      const subEntries = Object.entries(expertise.sub).filter(([, subs]) => subs.length > 0);
+    const vincereExpertise = await getFunctionalExpertise();
+    if (vincereExpertise.functional.length > 0) {
+      let prompt = 'FUNCTIONAL EXPERTISE uit jullie Vincere (kies EXACT één):\n';
+      prompt += vincereExpertise.functional.join(' | ');
+      const subEntries = Object.entries(vincereExpertise.sub).filter(([, subs]) => subs.length > 0);
       if (subEntries.length > 0) {
-        expertisePrompt += '\n\nBESCHIKBARE SUB FUNCTIONAL EXPERTISE PER CATEGORIE:';
+        prompt += '\n\nSUB FUNCTIONAL EXPERTISE per categorie:\n';
         for (const [parent, subs] of subEntries) {
-          expertisePrompt += `\n${parent}: ${subs.join(' | ')}`;
+          prompt += `${parent}: ${subs.join(' | ')}\n`;
         }
       }
+      expertisePrompt = prompt;
+      console.log(`[AI] Using ${vincereExpertise.functional.length} expertise values from Vincere API`);
+    } else {
+      expertisePrompt = buildFallbackExpertisePrompt();
+      console.log('[AI] Vincere returned empty list, using fallback expertise');
     }
   } catch (err) {
-    console.log(`[AI] Could not fetch expertise from Vincere: ${err.message}`);
+    expertisePrompt = buildFallbackExpertisePrompt();
+    console.log(`[AI] Vincere API unavailable (${err.message}), using fallback expertise`);
   }
-
-  // Build the expertise instruction based on whether we have Vincere data
-  const expertiseInstruction = expertisePrompt
-    ? `"functionalExpertise": "Kies EXACT één waarde uit de BESCHIKBARE FUNCTIONAL EXPERTISE lijst hieronder. Gebruik exact dezelfde spelling.",
-  "subFunctionalExpertise": "Kies EXACT één waarde uit de BESCHIKBARE SUB FUNCTIONAL EXPERTISE lijst bij de gekozen functional expertise. Gebruik exact dezelfde spelling. Als er geen sub-lijst beschikbaar is, kies dan de meest passende omschrijving."`
-    : `"functionalExpertise": "Het hoofdgebied van expertise (bijv. Information Technology, Sales & Business Development, etc.)",
-  "subFunctionalExpertise": "Specifiekere sub-expertise (bijv. Software Development, Account Management, etc.)"`;
 
   const response = await client.chat.completions.create({
     model: openaiConfig.model,
@@ -87,10 +86,13 @@ Antwoord altijd in het Nederlands, in JSON format met deze velden:
   "salaryIndication": "Geschatte salarisrange op basis van ervaring en functie (optioneel)",
   "redFlags": ["eventuele aandachtspunten, of lege array"],
   "matchingKeywords": ["zoektermen", "voor", "job", "matching"],
-  ${expertiseInstruction}
+  "functionalExpertise": "Kies EXACT één waarde uit de FUNCTIONAL EXPERTISE lijst hieronder",
+  "subFunctionalExpertise": "Kies EXACT één waarde uit de SUB FUNCTIONAL EXPERTISE lijst bij de gekozen functional expertise"
 }
 
-KRITISCH: Voor functionalExpertise en subFunctionalExpertise MOET je EXACT een waarde kiezen uit de beschikbare lijsten. Gebruik exact dezelfde spelling als in de lijst, geen variaties.${expertisePrompt}`
+KRITISCH: functionalExpertise en subFunctionalExpertise worden direct als code in Vincere gezet. Je MOET EXACT een waarde kiezen uit onderstaande lijsten. Exact dezelfde spelling, geen variaties of vertalingen.
+
+${expertisePrompt}`
       },
       {
         role: 'user',
