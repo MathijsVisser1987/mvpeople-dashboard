@@ -22,9 +22,7 @@ export default function TVSlideshow() {
   const leaderboard = data?.leaderboard || [];
   const teamStats = data?.teamStats || {};
 
-  const groupSlides = ['leaderboard', 'top-performer', 'competition', 'recent-wins', 'team-targets'];
-  const individualSlides = leaderboard.map((_, i) => `individual-${i}`);
-  const slides = [...groupSlides, ...individualSlides];
+  const slides = ['leaderboard', 'top-performer', 'competition', 'recent-wins', 'team-targets'];
 
   // Add tv-mode class to body
   useEffect(() => {
