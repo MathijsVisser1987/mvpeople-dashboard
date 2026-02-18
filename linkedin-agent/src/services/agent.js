@@ -87,6 +87,7 @@ export async function processCandidate(input, options = {}) {
 
         if (lushaResult.email && !candidate.email) candidate.email = lushaResult.email;
         if (lushaResult.phone && !candidate.phone) candidate.phone = lushaResult.phone;
+        candidate._lushaData = lushaResult;
 
         const found = [];
         if (lushaResult.email) found.push(`email: ${lushaResult.email}`);
@@ -157,6 +158,7 @@ export async function processCandidate(input, options = {}) {
     try {
       aiAnalysis = await enrichProfile(candidate);
       candidate.aiAnalysis = formatAiAnalysis(aiAnalysis);
+      candidate._aiAnalysis = aiAnalysis; // Pass raw AI data to createCandidate for field mapping
       candidate.skills = [...new Set([...(candidate.skills || []), ...(aiAnalysis.skills || [])])];
 
       result.steps[aiStepIdx].status = 'done';
@@ -195,7 +197,7 @@ export async function processCandidate(input, options = {}) {
     const vincereResult = await createCandidate(candidate);
     result.vincereId = vincereResult.id;
     result.steps[createStepIdx].status = 'done';
-    result.steps[createStepIdx].detail = `Kandidaat aangemaakt met ID: ${vincereResult.id}`;
+    result.steps[createStepIdx].detail = `ID: ${vincereResult.id} (${vincereResult.fieldsPopulated || '?'} velden ingevuld)`;
 
     // Step 8: Generate CV in MVPeople format and upload to Vincere
     const cvStepIdx = result.steps.length;

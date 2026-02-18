@@ -99,34 +99,111 @@ export async function searchCandidateByName(firstName, lastName) {
 }
 
 /**
- * Create a new candidate in Vincere
+ * Create a new candidate in Vincere with maximum field pre-population.
  *
- * Required fields: first_name, last_name
- * Recommended: email, phone, current_job_title, company_name
+ * Fills as many Vincere fields as possible from LinkedIn data, Lusha
+ * enrichment, and AI analysis so the recruiter has minimal manual work.
+ *
+ * Vincere candidate API fields reference:
+ *   first_name, last_name, email, phone, mobile, current_job_title,
+ *   company_name, address, linkedin_url, summary, source, skills,
+ *   desired_job_title, desired_salary, desired_salary_currency,
+ *   availability, education_summary, note, registration_date,
+ *   candidate_source, languages
  */
 export async function createCandidate(candidateData) {
-  // Build the Vincere candidate payload
+  const ai = candidateData._aiAnalysis || null;
+
+  // ── Core fields ──
   const payload = {
     first_name: candidateData.firstName,
     last_name: candidateData.lastName,
     registration_date: new Date().toISOString(),
+    candidate_source: 'LinkedIn',
   };
 
-  // Add optional fields
-  if (candidateData.email) {
-    payload.email = candidateData.email;
-  }
+  // ── Contact info (LinkedIn + Lusha enriched) ──
+  if (candidateData.email) payload.email = candidateData.email;
   if (candidateData.phone) {
-    payload.phone = candidateData.phone;
+    // Try to split into phone/mobile
+    const phone = candidateData.phone;
+    if (phone.includes('+316') || phone.includes('+31 6') || phone.match(/^06/)) {
+      payload.mobile = phone;
+    } else {
+      payload.phone = phone;
+    }
   }
-  if (candidateData.currentTitle) {
-    payload.current_job_title = candidateData.currentTitle;
-  }
-  if (candidateData.currentCompany) {
-    payload.company_name = candidateData.currentCompany;
-  }
+
+  // ── Professional info ──
+  if (candidateData.currentTitle) payload.current_job_title = candidateData.currentTitle;
+  if (candidateData.currentCompany) payload.company_name = candidateData.currentCompany;
+
+  // ── LinkedIn URL (native Vincere field) ──
+  if (candidateData.linkedinUrl) payload.linkedin_url = candidateData.linkedinUrl;
+
+  // ── Location / Address ──
   if (candidateData.location) {
-    payload.address = { city: candidateData.location };
+    const loc = parseLocation(candidateData.location);
+    payload.address = loc;
+  }
+
+  // ── Summary / Description ──
+  const summaryParts = [];
+  if (ai?.summary) summaryParts.push(ai.summary);
+  else if (candidateData.summary) summaryParts.push(candidateData.summary);
+
+  if (ai?.highlights?.length > 0) {
+    summaryParts.push('\nHighlights:\n' + ai.highlights.map(h => `• ${h}`).join('\n'));
+  }
+  if (summaryParts.length > 0) {
+    payload.summary = summaryParts.join('\n');
+  }
+
+  // ── Skills (as comma-separated string for Vincere) ──
+  const allSkills = [...new Set([
+    ...(candidateData.skills || []),
+    ...(ai?.skills || []),
+  ])];
+  if (allSkills.length > 0) {
+    payload.skills = allSkills.join(', ');
+  }
+
+  // ── AI-derived fields ──
+  if (ai?.suggestedTitles?.length > 0) {
+    payload.desired_job_title = ai.suggestedTitles[0];
+  }
+  if (ai?.industries?.length > 0) {
+    payload.industry = ai.industries[0];
+  }
+
+  // ── Education summary ──
+  if (candidateData.education?.length > 0) {
+    payload.education_summary = candidateData.education
+      .map(edu => [edu.degree, edu.institution, edu.year].filter(Boolean).join(' - '))
+      .join('\n');
+  }
+
+  // ── Languages ──
+  if (candidateData.languages?.length > 0) {
+    payload.languages = candidateData.languages.join(', ');
+  }
+
+  // ── Experience summary (for the description field) ──
+  if (candidateData.experience?.length > 0) {
+    const expText = candidateData.experience
+      .map(exp => {
+        const parts = [exp.title];
+        if (exp.company) parts.push(`@ ${exp.company}`);
+        if (exp.duration) parts.push(`(${exp.duration})`);
+        return parts.join(' ');
+      })
+      .join('\n');
+    payload.description = `Werkervaring:\n${expText}`;
+  }
+
+  // ── Tags / custom fields from AI ──
+  if (ai?.seniorityLevel) {
+    payload.seniority = ai.seniorityLevel;
   }
 
   // Create candidate
@@ -137,30 +214,13 @@ export async function createCandidate(candidateData) {
     throw new Error('Failed to create candidate - no ID returned');
   }
 
-  console.log(`[Vincere] Created candidate ${candidateId}: ${candidateData.firstName} ${candidateData.lastName}`);
+  const fieldsSet = Object.keys(payload).length;
+  console.log(`[Vincere] Created candidate ${candidateId}: ${candidateData.firstName} ${candidateData.lastName} (${fieldsSet} velden ingevuld)`);
 
-  // Add supplementary data
+  // ── Post-creation enrichment (notes, web links) ──
   const enrichmentTasks = [];
 
-  // Add LinkedIn URL as a web link
-  if (candidateData.linkedinUrl) {
-    enrichmentTasks.push(
-      addCandidateNote(candidateId, `LinkedIn: ${candidateData.linkedinUrl}`).catch(err =>
-        console.log(`[Vincere] Failed to add LinkedIn link: ${err.message}`)
-      )
-    );
-  }
-
-  // Add summary/description as a note
-  if (candidateData.summary) {
-    enrichmentTasks.push(
-      addCandidateNote(candidateId, `Profiel samenvatting:\n${candidateData.summary}`).catch(err =>
-        console.log(`[Vincere] Failed to add summary note: ${err.message}`)
-      )
-    );
-  }
-
-  // Add AI analysis as a note
+  // Add AI analysis as a comprehensive note
   if (candidateData.aiAnalysis) {
     enrichmentTasks.push(
       addCandidateNote(candidateId, `AI Analyse:\n${candidateData.aiAnalysis}`).catch(err =>
@@ -169,16 +229,22 @@ export async function createCandidate(candidateData) {
     );
   }
 
-  // Add skills as custom fields or notes
-  if (candidateData.skills?.length > 0) {
-    enrichmentTasks.push(
-      addCandidateNote(candidateId, `Skills: ${candidateData.skills.join(', ')}`).catch(err =>
-        console.log(`[Vincere] Failed to add skills: ${err.message}`)
-      )
-    );
+  // Add Lusha data as a note for reference
+  if (candidateData._lushaData) {
+    const lusha = candidateData._lushaData;
+    const lushaLines = ['Lusha Verrijking:'];
+    if (lusha.allEmails?.length > 0) lushaLines.push(`Emails: ${lusha.allEmails.map(e => `${e.email} (${e.type})`).join(', ')}`);
+    if (lusha.allPhones?.length > 0) lushaLines.push(`Telefoon: ${lusha.allPhones.map(p => `${p.phone} (${p.type})`).join(', ')}`);
+    if (lushaLines.length > 1) {
+      enrichmentTasks.push(
+        addCandidateNote(candidateId, lushaLines.join('\n')).catch(err =>
+          console.log(`[Vincere] Failed to add Lusha note: ${err.message}`)
+        )
+      );
+    }
   }
 
-  // Add job matches as notes
+  // Add job match suggestions as a note
   if (candidateData.jobMatches?.length > 0) {
     const matchText = candidateData.jobMatches
       .map(m => `- ${m.title} (${m.score}% match) - ${m.reason}`)
@@ -190,12 +256,54 @@ export async function createCandidate(candidateData) {
     );
   }
 
+  // Add salary indication from AI as a note
+  if (ai?.salaryIndication) {
+    enrichmentTasks.push(
+      addCandidateNote(candidateId, `Salarisindicatie (AI): ${ai.salaryIndication}`).catch(err =>
+        console.log(`[Vincere] Failed to add salary note: ${err.message}`)
+      )
+    );
+  }
+
+  // Add red flags if any
+  if (ai?.redFlags?.length > 0) {
+    enrichmentTasks.push(
+      addCandidateNote(candidateId, `Aandachtspunten:\n${ai.redFlags.map(f => `⚠ ${f}`).join('\n')}`).catch(err =>
+        console.log(`[Vincere] Failed to add red flags note: ${err.message}`)
+      )
+    );
+  }
+
   await Promise.all(enrichmentTasks);
 
   return {
     id: candidateId,
+    fieldsPopulated: fieldsSet,
     ...result,
   };
+}
+
+/**
+ * Parse a location string into Vincere address components
+ * Examples: "Amsterdam, Nederland" → { city: "Amsterdam", country: "Nederland" }
+ *           "Rotterdam, Zuid-Holland, Nederland" → { city: "Rotterdam", state: "Zuid-Holland", country: "Nederland" }
+ */
+function parseLocation(location) {
+  const parts = location.split(',').map(p => p.trim()).filter(Boolean);
+  const address = {};
+
+  if (parts.length === 1) {
+    address.city = parts[0];
+  } else if (parts.length === 2) {
+    address.city = parts[0];
+    address.country = parts[1];
+  } else if (parts.length >= 3) {
+    address.city = parts[0];
+    address.state = parts[1];
+    address.country = parts[parts.length - 1];
+  }
+
+  return address;
 }
 
 /**
