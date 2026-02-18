@@ -74,7 +74,7 @@ app.post('/api/settings/targets', async (req, res) => {
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', version: 2, timestamp: new Date().toISOString() });
 });
 
 // Cron: daily snapshot (triggered by Vercel cron)
