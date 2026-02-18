@@ -50,7 +50,7 @@ export const KPI_DEFINITIONS = {
     key: 'jobLead',
     label: 'Job Lead',
     emoji: '💼',
-    activityNames: ['JOB_LEAD_NEW', 'JOB_LEAD', 'NEW_JOB_LEAD'],
+    activityNames: ['NEW_JOB', 'JOB_LEAD_NEW', 'JOB_LEAD', 'NEW_JOB_LEAD'],
   },
   newCandidate: {
     key: 'newCandidate',
