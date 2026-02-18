@@ -13,7 +13,7 @@ function endOfMonth() {
 const CHALLENGE = {
   name: 'Lunchclub Sprint',
   description: 'Hit your individual deal target to win lunch on the company!',
-  prize: 'Aan de Poel ★',
+  prize: 'Restaurant TBD ★',
   prizeImage: '/Lunchclub.png',
   endDate: endOfMonth(),
 };
