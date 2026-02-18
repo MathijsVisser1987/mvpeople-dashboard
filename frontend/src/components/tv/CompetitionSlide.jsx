@@ -116,7 +116,7 @@ export default function CompetitionSlide({ members }) {
       </div>
 
       {/* Lunchclub sfeer foto */}
-      <div className="mt-[2vh] rounded-[1.5vh] overflow-hidden" style={{ maxHeight: '20vh' }}>
+      <div className="mt-[1.5vh] rounded-[1.5vh] overflow-hidden" style={{ maxHeight: '14vh' }}>
         <img src="/Lunchclub.png" alt="Lunchclub" className="w-full h-full object-cover rounded-[1.5vh] opacity-80" />
       </div>
     </div>
