@@ -87,17 +87,17 @@ export default function TeamTargetsSlide({ stats, members }) {
       </div>
 
       {/* Individual contributions */}
-      <div className="grid grid-cols-7 gap-[0.8vw]">
+      <div className="grid grid-cols-7 gap-[1vw]">
         {(members || []).map(m => (
-          <div key={m.id} className="bg-mvp-card rounded-[1vh] border border-mvp-border p-[1vh] text-center">
-            <div className="mx-auto mb-[0.5vh]" style={{ width: '4vh', height: '4vh' }}>
-              <Avatar member={m} />
+          <div key={m.id} className="bg-mvp-card rounded-[1vh] border border-mvp-border p-[1.2vh] text-center">
+            <div className="mx-auto mb-[0.8vh]" style={{ width: '7vh', height: '7vh' }}>
+              <Avatar member={m} size="w-full h-full" textSize="text-[2.5vh]" />
             </div>
-            <div className="text-[1.4vh] font-semibold font-display mb-[0.3vh] whitespace-nowrap overflow-visible">{m.name}</div>
-            <div className="text-[1.8vh] font-bold text-mvp-success font-display">{m.deals}</div>
-            <div className="text-[0.8vh] text-white/30 font-display uppercase">deals</div>
-            <div className="text-[1.8vh] font-bold text-mvp-accent font-display mt-[0.2vh]">{m.calls}</div>
-            <div className="text-[0.8vh] text-white/30 font-display uppercase">calls</div>
+            <div className="text-[1.8vh] font-semibold font-display mb-[0.8vh] truncate">{m.name}</div>
+            <div className="text-[2.5vh] font-bold text-mvp-success font-display leading-none">{m.deals}</div>
+            <div className="text-[1.1vh] text-white/30 font-display uppercase mb-[0.5vh]">deals</div>
+            <div className="text-[2.5vh] font-bold text-mvp-accent font-display leading-none">{m.calls}</div>
+            <div className="text-[1.1vh] text-white/30 font-display uppercase">calls</div>
           </div>
         ))}
       </div>
