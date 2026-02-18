@@ -406,53 +406,13 @@ app.get('/api/debug/8x8', async (req, res) => {
     isAuthenticated: eightByEightService.isAuthenticated(),
   };
 
-  // Try username/password auth with detailed error
+  // Try authentication via the service
   if (!eightByEightService.isAuthenticated() && username && password) {
-    const urls = [
-      `${eightByEightService.baseUrl}/analytics/work/v1/oauth/token`,
-      `https://api.8x8.com/analytics/work/v1/oauth/token`,
-    ];
-
-    results.auth = { attempts: [] };
-
-    for (const url of urls) {
-      try {
-        const body = new URLSearchParams({ username, password });
-        const fetchRes = await fetch(url, {
-          method: 'POST',
-          headers: {
-            '8x8-apikey': eightByEightService.apiKey,
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body,
-        });
-
-        const responseText = await fetchRes.text();
-        const attempt = {
-          url,
-          status: fetchRes.status,
-          ok: fetchRes.ok,
-          response: responseText.substring(0, 500),
-        };
-
-        if (fetchRes.ok) {
-          try {
-            const data = JSON.parse(responseText);
-            eightByEightService.accessToken = data.access_token;
-            eightByEightService.tokenExpiry = new Date(Date.now() + (data.expires_in || 1800) * 1000);
-            await eightByEightService._saveTokens();
-            attempt.success = true;
-            attempt.expiresIn = data.expires_in;
-          } catch (e) {
-            attempt.parseError = e.message;
-          }
-        }
-
-        results.auth.attempts.push(attempt);
-        if (fetchRes.ok) break;
-      } catch (err) {
-        results.auth.attempts.push({ url, error: err.message });
-      }
+    try {
+      await eightByEightService.authenticate(username, password);
+      results.auth = { success: true, tokenExpiry: eightByEightService.tokenExpiry?.toISOString() };
+    } catch (err) {
+      results.auth = { success: false, error: err.message };
     }
   }
 
@@ -468,6 +428,180 @@ app.get('/api/debug/8x8', async (req, res) => {
   }
 
   res.json(results);
+});
+
+// Debug: scan all Vincere activities and collect unique type combos
+// ?pages=5 to control how many pages to scan (default 10, max 30)
+app.get('/api/debug/activity-raw', async (req, res) => {
+  try {
+    const isAuth = await vincereService.isAuthenticated();
+    if (!isAuth) return res.json({ error: 'Not authenticated' });
+
+    const maxPages = Math.min(parseInt(req.query.pages) || 10, 30);
+    const now = new Date();
+    const sixMonthsAgo = new Date(now);
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+    const typeCombos = {};    // "category:entity_type" → count
+    const nameCombos = {};    // activity_name → count
+    const samples = {};       // "category:entity_type" → sample activity
+    const uniqueCategories = new Set();
+    const uniqueEntityTypes = new Set();
+    const uniqueStatuses = new Set();
+    let totalFetched = 0;
+    let lastPage = -1;
+
+    const startTime = Date.now();
+    for (let page = 0; page < maxPages; page++) {
+      if (Date.now() - startTime > 40000) break; // 40s safety
+      try {
+        const data = await vincereService._apiPost('/activities', {
+          created_date_from: sixMonthsAgo.toISOString(),
+          created_date_to: now.toISOString(),
+        }, { index: page });
+
+        const items = data?.content || [];
+        if (items.length === 0) break;
+        totalFetched += items.length;
+        lastPage = page;
+
+        for (const item of items) {
+          const cat = item.category || 'NULL';
+          const et = item.entity_type || 'NULL';
+          const key = `${cat}:${et}`;
+
+          typeCombos[key] = (typeCombos[key] || 0) + 1;
+          if (item.activity_name) {
+            nameCombos[item.activity_name] = (nameCombos[item.activity_name] || 0) + 1;
+          }
+          uniqueCategories.add(cat);
+          uniqueEntityTypes.add(et);
+          if (item.status) uniqueStatuses.add(item.status);
+
+          if (!samples[key]) {
+            samples[key] = {
+              category: item.category,
+              entity_type: item.entity_type,
+              activity_name: item.activity_name,
+              status: item.status,
+              created_by_id: item.created_by_id,
+              created_by_name: item.created_by_name,
+              subject: item.subject?.substring(0, 80),
+              summary: item.summary?.substring(0, 120),
+            };
+          }
+        }
+
+        if (data.last) break;
+      } catch (err) {
+        break;
+      }
+    }
+
+    const sorted = Object.entries(typeCombos)
+      .sort((a, b) => b[1] - a[1])
+      .map(([key, count]) => ({ key, count, sample: samples[key] }));
+
+    const namesSorted = Object.entries(nameCombos)
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, count]) => ({ name, count }));
+
+    res.json({
+      totalFetched,
+      pagesScanned: lastPage + 1,
+      uniqueCategories: [...uniqueCategories],
+      uniqueEntityTypes: [...uniqueEntityTypes],
+      uniqueStatuses: [...uniqueStatuses],
+      typeCombinations: sorted,
+      activityNames: namesSorted,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Debug: discover Vincere activity structure (lightweight — 3 calls max)
+app.get('/api/debug/activity-types', async (req, res) => {
+  try {
+    const isAuth = await vincereService.isAuthenticated();
+    if (!isAuth) return res.json({ error: 'Not authenticated' });
+
+    const results = {};
+
+    // 1. GET-based activity search (Solr index)
+    try {
+      const data = await vincereService._apiGet(
+        '/activity/search/fl=id,category,entity_type,content,insert_timestamp;sort=insert_timestamp desc',
+        { start: 0 }
+      );
+      const items = data?.result?.items || [];
+      results.activity_search = {
+        total: data?.result?.total,
+        itemCount: items.length,
+        responseKeys: data ? Object.keys(data) : null,
+        firstItemKeys: items[0] ? Object.keys(items[0]) : null,
+        items: items.slice(0, 10),
+      };
+    } catch (err) {
+      results.activity_search = { error: err.message };
+    }
+
+    // 2. GET candidate activity comments
+    try {
+      const candidates = await vincereService._apiGet(
+        '/candidate/search/fl=id;sort=created_date desc', { start: 0 }
+      );
+      const candId = candidates?.result?.items?.[0]?.id;
+      if (candId) {
+        const comments = await vincereService._apiGet(`/candidate/${candId}/activitycomments`);
+        results.candidate_comments = {
+          candidateId: candId,
+          count: Array.isArray(comments) ? comments.length : 'not array',
+          firstItemKeys: Array.isArray(comments) && comments[0] ? Object.keys(comments[0]) : null,
+          items: Array.isArray(comments) ? comments.slice(0, 5) : comments,
+        };
+      }
+    } catch (err) {
+      results.candidate_comments = { error: err.message };
+    }
+
+    // 3. POST /activities — 1 page only, current month
+    try {
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      const data = await vincereService._apiPost('/activities', {
+        created_date_from: start.toISOString(),
+        created_date_to: now.toISOString(),
+      }, { index: 0 });
+      const items = data?.content || [];
+      results.post_activities = {
+        numElements: data?.num_of_elements,
+        isLast: data?.last,
+        sliceIndex: data?.slice_index,
+        responseKeys: data ? Object.keys(data) : null,
+        contentLength: items.length,
+        firstItemKeys: items[0] ? Object.keys(items[0]) : null,
+        items: items.slice(0, 5).map(item => {
+          // Show ALL fields of each activity
+          const cleaned = {};
+          for (const [k, v] of Object.entries(item)) {
+            if (typeof v === 'string' && v.length > 200) {
+              cleaned[k] = v.substring(0, 200) + '...';
+            } else {
+              cleaned[k] = v;
+            }
+          }
+          return cleaned;
+        }),
+      };
+    } catch (err) {
+      results.post_activities = { error: err.message };
+    }
+
+    res.json(results);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 export default app;

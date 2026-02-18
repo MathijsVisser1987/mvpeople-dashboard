@@ -14,6 +14,7 @@ import LeaguesWidget from './components/LeaguesWidget';
 import MissionsWidget from './components/MissionsWidget';
 import TrendChartsWidget from './components/TrendChartsWidget';
 import ActivityBreakdown from './components/ActivityBreakdown';
+import KPITargets from './components/KPITargets';
 import SettingsPanel from './components/SettingsPanel';
 import TVSlideshow from './pages/TVSlideshow';
 import Reports from './pages/Reports';
@@ -52,6 +53,9 @@ function Dashboard() {
           <div className="lg:col-span-2 space-y-6">
             {isVisible('leaderboard') && (
               <Leaderboard members={leaderboard} loading={loading} />
+            )}
+            {isVisible('kpiTargets') && (
+              <KPITargets members={leaderboard} />
             )}
             {isVisible('leagues') && <LeaguesWidget />}
             {isVisible('activityBreakdown') && <ActivityBreakdown members={leaderboard} />}

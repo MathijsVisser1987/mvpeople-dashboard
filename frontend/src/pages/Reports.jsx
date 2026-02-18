@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BarChart3, TrendingUp, Users, Activity, ArrowLeft, Loader2, Calendar } from 'lucide-react';
+import { BarChart3, TrendingUp, Users, Activity, ArrowLeft, Loader2, Calendar, Target } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useHistory } from '../hooks/useHistory';
@@ -21,47 +21,31 @@ const ACTIVITY_TYPE_NAMES = {
   'COMMENT:CANDIDATE': 'Candidate Note',
   'COMMENT:CONTACT': 'Contact Note',
   'COMMENT:COMPANY': 'Company Note',
-  'COMMENT:POSITION': 'Job Note',
-  'COMMENT:APPLICATION': 'Application Note',
-  'COMMENT:PLACEMENT': 'Placement Note',
+  'APPLICATION:CANDIDATE': 'Application Update',
   'EMAIL_SENT:CANDIDATE': 'Email to Candidate',
   'EMAIL_SENT:CONTACT': 'Email to Contact',
-  'EMAIL_SENT:APPLICATION': 'Email (Application)',
   'EMAIL_RECEIVED:CANDIDATE': 'Email from Candidate',
   'EMAIL_RECEIVED:CONTACT': 'Email from Contact',
-  'EMAIL_RECEIVED:APPLICATION': 'Email (Application)',
   'MEETING:CANDIDATE': 'Candidate Meeting',
   'MEETING:CONTACT': 'Client Meeting',
   'MEETING:COMPANY': 'Company Meeting',
-  'MEETING:APPLICATION': 'Interview',
-  'MEETING:PLACEMENT': 'Placement Meeting',
-  'TASK:CANDIDATE': 'Candidate Task',
-  'TASK:CONTACT': 'Contact Task',
-  'TASK:COMPANY': 'Company Task',
-  'TASK:POSITION': 'Job Task',
-  'TASK:APPLICATION': 'Application Task',
-  'TASK:PLACEMENT': 'Placement Task',
-  'PHONE_CALL:CANDIDATE': 'Candidate Call',
-  'PHONE_CALL:CONTACT': 'Client Call',
-  'PHONE_CALL:COMPANY': 'Company Call',
+  'NEW_RECORD:CANDIDATE': 'New Candidate',
+  'NEW_RECORD:CONTACT': 'New Contact',
+  'NEW_RECORD:COMPANY': 'New Company',
+  'NEW_RECORD:JOB': 'New Job',
+  'PLACEMENT_UPDATE:CANDIDATE': 'Placement Update',
 };
 
-// Map activity type keys to their category
 const TYPE_TO_CATEGORY = {
   'COMMENT:CONTACT': 'SALES_CONTACT', 'COMMENT:COMPANY': 'SALES_CONTACT',
   'MEETING:CONTACT': 'SALES_CONTACT', 'MEETING:COMPANY': 'SALES_CONTACT',
-  'TASK:CONTACT': 'SALES_CONTACT', 'TASK:COMPANY': 'SALES_CONTACT',
   'EMAIL_SENT:CONTACT': 'SALES_CONTACT', 'EMAIL_RECEIVED:CONTACT': 'SALES_CONTACT',
-  'PHONE_CALL:CONTACT': 'SALES_CONTACT', 'PHONE_CALL:COMPANY': 'SALES_CONTACT',
+  'NEW_RECORD:CONTACT': 'SALES_CONTACT', 'NEW_RECORD:COMPANY': 'SALES_CONTACT',
   'COMMENT:CANDIDATE': 'RECRUITMENT_CANDIDATE', 'MEETING:CANDIDATE': 'RECRUITMENT_CANDIDATE',
-  'TASK:CANDIDATE': 'RECRUITMENT_CANDIDATE', 'EMAIL_SENT:CANDIDATE': 'RECRUITMENT_CANDIDATE',
-  'EMAIL_RECEIVED:CANDIDATE': 'RECRUITMENT_CANDIDATE', 'PHONE_CALL:CANDIDATE': 'RECRUITMENT_CANDIDATE',
-  'COMMENT:POSITION': 'PIPELINE_JOBS', 'COMMENT:APPLICATION': 'PIPELINE_JOBS',
-  'MEETING:APPLICATION': 'PIPELINE_JOBS', 'TASK:POSITION': 'PIPELINE_JOBS',
-  'TASK:APPLICATION': 'PIPELINE_JOBS', 'EMAIL_SENT:APPLICATION': 'PIPELINE_JOBS',
-  'EMAIL_RECEIVED:APPLICATION': 'PIPELINE_JOBS',
-  'COMMENT:PLACEMENT': 'DEALS_REVENUE', 'TASK:PLACEMENT': 'DEALS_REVENUE',
-  'MEETING:PLACEMENT': 'DEALS_REVENUE',
+  'EMAIL_SENT:CANDIDATE': 'RECRUITMENT_CANDIDATE', 'EMAIL_RECEIVED:CANDIDATE': 'RECRUITMENT_CANDIDATE',
+  'NEW_RECORD:CANDIDATE': 'RECRUITMENT_CANDIDATE',
+  'APPLICATION:CANDIDATE': 'PIPELINE_JOBS', 'NEW_RECORD:JOB': 'PIPELINE_JOBS',
+  'PLACEMENT_UPDATE:CANDIDATE': 'DEALS_REVENUE',
 };
 
 function getDatePresets() {
@@ -180,6 +164,59 @@ function IndividualStats({ members }) {
             ))}
           </tbody>
         </table>
+      </div>
+    </div>
+  );
+}
+
+function KPIReport({ members }) {
+  const membersWithKPIs = (members || []).filter(m => m.kpis && m.kpis.length > 0);
+  if (membersWithKPIs.length === 0) return null;
+
+  return (
+    <div className="bg-mvp-card rounded-xl border border-mvp-border p-5">
+      <div className="flex items-center gap-2 mb-4">
+        <Target size={18} className="text-mvp-accent" />
+        <h3 className="text-lg font-bold font-display">KPI Target vs Actual</h3>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-mvp-border">
+              <th className="text-left py-2 px-2 font-display text-white/40 uppercase text-xs">Name</th>
+              <th className="text-left py-2 px-2 font-display text-white/40 uppercase text-xs">Profile</th>
+              {membersWithKPIs[0]?.kpis?.map(kpi => (
+                <th key={kpi.key} className="text-center py-2 px-1.5 font-display text-white/40 text-[10px] uppercase" title={kpi.label}>
+                  {kpi.emoji}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {membersWithKPIs.map(m => (
+              <tr key={m.id} className="border-b border-mvp-border/30 hover:bg-mvp-dark/50">
+                <td className="py-2 px-2">
+                  <div className="flex items-center gap-2">
+                    <Avatar member={m} size="w-6 h-6" textSize="text-[10px]" />
+                    <span className="font-display font-semibold text-sm">{m.name}</span>
+                  </div>
+                </td>
+                <td className="py-2 px-2 text-xs text-white/30">{m.targetProfile === 'recruiter360' ? '360' : 'Starter'}</td>
+                {m.kpis.map(kpi => (
+                  <td key={kpi.key} className="py-2 px-1.5 text-center">
+                    <div className={`text-xs font-bold font-display ${kpi.onTrack ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {kpi.actual}
+                    </div>
+                    <div className="text-[9px] text-white/20">{kpi.proRated}</div>
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="mt-3 text-[10px] text-white/20 font-body">
+        Top: actual | Bottom: pro-rated target. <span className="text-emerald-400">Green</span> = on track, <span className="text-red-400">Red</span> = behind.
       </div>
     </div>
   );
@@ -447,6 +484,7 @@ export default function Reports() {
                   <TrendChart history={history} metric="totalCalls" title="Calls Over Time" color="#59D6D6" />
                 </div>
                 <IndividualStats members={members} />
+                <KPIReport members={members} />
               </div>
             )}
 

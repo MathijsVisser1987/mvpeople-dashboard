@@ -5,6 +5,7 @@ import { Settings, X, Eye, EyeOff } from 'lucide-react';
 const WIDGET_LABELS = {
   teamStats: { name: 'Team KPIs', icon: '📊' },
   leaderboard: { name: 'Leaderboard', icon: '🏆' },
+  kpiTargets: { name: 'KPI Targets', icon: '🎯' },
   leagues: { name: 'Leagues', icon: '🏅' },
   missions: { name: 'Missions', icon: '🎯' },
   challenge: { name: 'Challenge', icon: '⚡' },

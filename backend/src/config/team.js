@@ -10,6 +10,7 @@ export const teamMembers = [
     vincereId: 29060,
     email: 'burcu@mvpeoplegroup.com',
     extension: '1007',
+    targetProfile: 'recruiter360',
   },
   {
     name: 'Floris Akkerhuis',
@@ -21,6 +22,7 @@ export const teamMembers = [
     vincereId: 28956,
     email: 'fa@mvpeoplegroup.com',
     extension: '1001',
+    targetProfile: 'recruiter360',
   },
   {
     name: 'Harry Vidler',
@@ -32,6 +34,7 @@ export const teamMembers = [
     vincereId: 29093,
     email: 'harry@mvpeoplegroup.com',
     extension: '1004',
+    targetProfile: 'starter',
   },
   {
     name: 'Marcos Sanches',
@@ -43,6 +46,7 @@ export const teamMembers = [
     vincereId: 28957,
     email: 'marcos@mvpeoplegroup.com',
     extension: '1002',
+    targetProfile: 'recruiter360',
   },
   {
     name: 'Mathijs Visser',
@@ -54,6 +58,7 @@ export const teamMembers = [
     vincereId: 28955,
     email: 'mv@mvpeoplegroup.com',
     extension: '1000',
+    targetProfile: 'recruiter360',
   },
   {
     name: 'Milan Zeedijk',
@@ -65,6 +70,7 @@ export const teamMembers = [
     vincereId: 28994,
     email: 'milan@mvpeoplegroup.com',
     extension: '1005',
+    targetProfile: 'starter',
   },
   {
     name: 'Viviana Vahl',
@@ -76,6 +82,7 @@ export const teamMembers = [
     vincereId: 29027,
     email: 'viviana@mvpeoplegroup.com',
     extension: '1008',
+    targetProfile: 'recruiter360',
   },
 ];
 

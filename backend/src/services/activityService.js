@@ -5,6 +5,7 @@ import {
   ACTIVITY_CLASSIFICATION,
   ACTIVITY_NAME_CLASSIFICATION,
   ACTIVITY_POINTS_MAP,
+  ACTIVITY_NAME_POINTS,
   DEFAULT_ACTIVITY_POINTS,
 } from '../config/goals.js';
 
@@ -65,6 +66,7 @@ class ActivityService {
       activityPoints: 0,
       byType: {},
       byCategory: {},
+      byActivityName: {},  // counts by activity_name (for KPI tracking)
     };
 
     // Initialize categories
@@ -82,13 +84,25 @@ class ActivityService {
     for (const activity of activities) {
       const typeKey = this._getActivityTypeKey(activity);
       const catKey = this._classifyActivity(activity);
-      const points = typeKey ? (ACTIVITY_POINTS_MAP[typeKey] ?? DEFAULT_ACTIVITY_POINTS) : DEFAULT_ACTIVITY_POINTS;
+
+      // Points: activity_name-specific points take precedence, then category:entity_type, then default
+      let points = DEFAULT_ACTIVITY_POINTS;
+      if (activity.activity_name && ACTIVITY_NAME_POINTS[activity.activity_name] !== undefined) {
+        points = ACTIVITY_NAME_POINTS[activity.activity_name];
+      } else if (typeKey && ACTIVITY_POINTS_MAP[typeKey] !== undefined) {
+        points = ACTIVITY_POINTS_MAP[typeKey];
+      }
 
       result.totalActivities++;
       result.activityPoints += points;
 
       if (typeKey) {
         result.byType[typeKey] = (result.byType[typeKey] || 0) + 1;
+      }
+
+      // Track by activity_name for KPI calculations
+      if (activity.activity_name) {
+        result.byActivityName[activity.activity_name] = (result.byActivityName[activity.activity_name] || 0) + 1;
       }
 
       if (catKey && result.byCategory[catKey]) {

@@ -115,6 +115,24 @@ function MemberRow({ member, rank }) {
                 ))}
             </div>
           )}
+          {/* KPI progress bars (compact) */}
+          {member.kpis && member.kpis.length > 0 && (
+            <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
+              {member.kpis.slice(0, 5).map(kpi => (
+                <span
+                  key={kpi.key}
+                  className="text-[10px] font-display"
+                  title={`${kpi.label}: ${kpi.actual} / ${kpi.proRated} (target: ${kpi.target})`}
+                >
+                  <span className="opacity-50">{kpi.emoji}</span>{' '}
+                  <span className={kpi.onTrack ? 'text-emerald-400' : 'text-red-400'}>
+                    {kpi.actual}
+                  </span>
+                  <span className="text-white/25">/{kpi.proRated}</span>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Stats */}

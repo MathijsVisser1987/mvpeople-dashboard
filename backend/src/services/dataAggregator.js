@@ -5,6 +5,7 @@ import historyService from './historyService.js';
 import activityService from './activityService.js';
 import { teamMembers, calculatePoints, getMultiplier, computeBadges } from '../config/team.js';
 import { ACTIVITY_POINTS_MAP } from '../config/goals.js';
+import { calculateKPIActuals, calculateKPIStatus, TARGET_PROFILES } from '../config/kpiTargets.js';
 
 // Cache to avoid hammering APIs
 let cache = {
@@ -142,13 +143,16 @@ export async function buildLeaderboard() {
     return cache.leaderboard;
   }
 
-  const [callStats, dealResult, dailyStats, activityStats] = await Promise.all([
+  // Fetch 8x8 calls + Vincere activities concurrently (both are lightweight)
+  // Then run the heavy deal scan separately to avoid rate-limiting activities
+  const [callStats, dailyStats, activityStats] = await Promise.all([
     getCallStats(),
-    getDealStats(),
     getDailyCallStats(3),
     getActivityStats(),
   ]);
 
+  // Deal scan is heavy (800+ API calls) — run after activities to avoid 429s
+  const dealResult = await getDealStats();
   const dealStats = dealResult.stats;
   const scanComplete = dealResult.scanComplete;
 
@@ -186,6 +190,10 @@ export async function buildLeaderboard() {
       pipelineValue,
     };
 
+    // KPI Target/Actual/Variance calculations
+    const kpiActuals = calculateKPIActuals(activities.byActivityName || {}, dealsCount);
+    const kpiStatus = calculateKPIStatus(member.targetProfile, kpiActuals);
+
     return {
       id: index + 1,
       name: member.shortName,
@@ -196,6 +204,7 @@ export async function buildLeaderboard() {
       role: member.role,
       vincereId: member.vincereId,
       extension: member.extension,
+      targetProfile: member.targetProfile,
       deals: dealsCount,
       calls: callsMade,
       talkTimeMinutes,
@@ -210,6 +219,7 @@ export async function buildLeaderboard() {
       activityPoints: activityPointsNet,
       totalActivities: activities.totalActivities || 0,
       activityTypes: activities.byType || {},
+      kpis: kpiStatus,
     };
   });
 
@@ -230,6 +240,7 @@ export async function buildLeaderboard() {
       totalActivities: leaderboard.reduce((s, m) => s + m.totalActivities, 0),
     },
     celebrations,
+    targetProfiles: TARGET_PROFILES,
     apiStatus: {
       vincere: await vincereService.isAuthenticated(),
       eightByEight: eightByEightService.isAuthenticated(),

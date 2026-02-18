@@ -27,9 +27,8 @@ const KV_KEY_8X8 = '8x8-tokens';
 
 class EightByEightService {
   constructor() {
-    const region = process.env.EIGHT_BY_EIGHT_REGION || 'eu';
-    const baseUrl = process.env.EIGHT_BY_EIGHT_BASE_URL || `https://api.8x8.com/${region}`;
-    this.baseUrl = baseUrl;
+    // 8x8 Work Analytics API — no region prefix in URLs per official docs
+    this.baseUrl = 'https://api.8x8.com';
     this.apiKey = process.env.EIGHT_BY_EIGHT_API_KEY;
     this.secret = process.env.EIGHT_BY_EIGHT_SECRET;
     this.pbxId = process.env.EIGHT_BY_EIGHT_PBX_ID || 'mvpeople';
@@ -91,41 +90,35 @@ class EightByEightService {
   }
 
   async authenticate(username, password) {
-    // Try EU-prefixed URL first, then fall back to global
-    const urls = [
-      `${this.baseUrl}/analytics/work/v1/oauth/token`,
-      `https://api.8x8.com/analytics/work/v1/oauth/token`,
-    ];
+    const url = `${this.baseUrl}/analytics/work/v1/oauth/token`;
+    console.log(`[8x8] Authenticating as "${username}" via ${url}`);
 
-    let lastError;
-    for (const url of urls) {
-      try {
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: {
-            '8x8-apikey': this.apiKey,
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: new URLSearchParams({ username, password }),
-        });
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          '8x8-apikey': this.apiKey,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({ username, password }),
+      });
 
-        if (!res.ok) {
-          const err = await res.text();
-          lastError = `${res.status}: ${err}`;
-          continue;
-        }
-
-        const data = await res.json();
-        this.accessToken = data.access_token;
-        this.tokenExpiry = new Date(Date.now() + (data.expires_in || 1800) * 1000);
-        await this._saveTokens();
-        console.log(`[8x8] Authenticated via ${url}`);
-        return data;
-      } catch (err) {
-        lastError = err.message;
+      if (!res.ok) {
+        const err = await res.text();
+        console.error(`[8x8] Auth failed: ${res.status} ${err}`);
+        throw new Error(`8x8 auth failed (${res.status}): ${err}`);
       }
+
+      const data = await res.json();
+      this.accessToken = data.access_token;
+      this.tokenExpiry = new Date(Date.now() + (data.expires_in || 1800) * 1000);
+      await this._saveTokens();
+      console.log(`[8x8] Authenticated OK, token valid for ${data.expires_in}s`);
+      return data;
+    } catch (err) {
+      if (err.message.startsWith('8x8 auth failed')) throw err;
+      throw new Error(`8x8 authentication error: ${err.message}`);
     }
-    throw new Error(`8x8 authentication failed: ${lastError}`);
   }
 
   isAuthenticated() {
@@ -167,61 +160,39 @@ class EightByEightService {
       timeZone: timezone,
     });
 
-    // Try EU-prefixed URL, then global
-    const urls = [
-      `${this.baseUrl}/analytics/work/v2/extsum?${params}`,
-      `https://api.8x8.com/analytics/work/v2/extsum?${params}`,
-    ];
+    const url = `${this.baseUrl}/analytics/work/v2/extsum?${params}`;
 
-    let lastError;
-    let retried = false;
-    for (const url of urls) {
-      try {
-        const res = await fetch(url, {
-          headers: {
-            'Authorization': `Bearer ${this.accessToken}`,
-            '8x8-apikey': this.apiKey,
-          },
-        });
+    const doFetch = async () => {
+      const res = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${this.accessToken}`,
+          '8x8-apikey': this.apiKey,
+        },
+      });
+      return res;
+    };
 
-        // On 401, re-authenticate and retry once
-        if (res.status === 401 && !retried) {
-          retried = true;
-          console.log('[8x8] Got 401, re-authenticating...');
-          const username = process.env.EIGHT_BY_EIGHT_USERNAME;
-          const password = process.env.EIGHT_BY_EIGHT_PASSWORD;
-          if (username && password) {
-            await this.authenticate(username, password);
-            // Retry this URL with new token
-            const retryRes = await fetch(url, {
-              headers: {
-                'Authorization': `Bearer ${this.accessToken}`,
-                '8x8-apikey': this.apiKey,
-              },
-            });
-            if (retryRes.ok) {
-              const data = await retryRes.json();
-              console.log(`[8x8] Extension summary fetched after re-auth - ${Array.isArray(data) ? data.length : 0} extensions`);
-              return data;
-            }
-          }
-          lastError = `401: Unauthorized (re-auth failed)`;
-          continue;
-        }
+    let res = await doFetch();
 
-        if (!res.ok) {
-          lastError = `${res.status}: ${await res.text()}`;
-          continue;
-        }
-
-        const data = await res.json();
-        console.log(`[8x8] Extension summary fetched from ${url} - ${Array.isArray(data) ? data.length : 0} extensions`);
-        return data;
-      } catch (err) {
-        lastError = err.message;
+    // On 401, re-authenticate and retry once
+    if (res.status === 401) {
+      console.log('[8x8] Got 401 on extsum, re-authenticating...');
+      const username = process.env.EIGHT_BY_EIGHT_USERNAME;
+      const password = process.env.EIGHT_BY_EIGHT_PASSWORD;
+      if (username && password) {
+        await this.authenticate(username, password);
+        res = await doFetch();
       }
     }
-    throw new Error(`8x8 extension summary failed: ${lastError}`);
+
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`8x8 extension summary failed (${res.status}): ${err}`);
+    }
+
+    const data = await res.json();
+    console.log(`[8x8] Extension summary: ${Array.isArray(data) ? data.length : 0} extensions`);
+    return data;
   }
 
   // Get today's stats for all extensions
