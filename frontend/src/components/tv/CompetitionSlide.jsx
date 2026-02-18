@@ -62,8 +62,8 @@ export default function CompetitionSlide({ members }) {
   return (
     <div className="w-full max-w-[90vw]">
       <div className="flex items-center justify-between mb-[2.5vh]">
-        <div className="flex items-center gap-[0.8vw]">
-          <Target className="text-mvp-accent" style={{ width: '3.5vh', height: '3.5vh' }} />
+        <div className="flex items-center gap-[1vw]">
+          <img src="/Lunchclub.png" alt="Lunchclub" className="rounded-[1vh] object-cover" style={{ height: '8vh' }} />
           <div>
             <h2 className="text-[4vh] font-bold font-display">{CHALLENGE.name}</h2>
             <p className="text-[1.8vh] text-white/40 font-body">{CHALLENGE.description}</p>

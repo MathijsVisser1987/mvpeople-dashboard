@@ -90,12 +90,15 @@ export default function Challenge({ members }) {
   return (
     <div className="bg-mvp-card rounded-xl border border-mvp-accent/30 p-5 glow-accent">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <Target size={18} className="text-mvp-accent" />
-            <h2 className="text-lg font-bold font-display">{challenge.name}</h2>
+        <div className="flex items-center gap-3">
+          <img src="/Lunchclub.png" alt="Lunchclub" className="h-12 rounded-lg object-cover" />
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <Target size={18} className="text-mvp-accent" />
+              <h2 className="text-lg font-bold font-display">{challenge.name}</h2>
+            </div>
+            <p className="text-sm text-white/50 font-body">{challenge.description}</p>
           </div>
-          <p className="text-sm text-white/50 font-body">{challenge.description}</p>
         </div>
         <div className="flex items-center gap-2">
           <Clock size={14} className="text-white/40" />
