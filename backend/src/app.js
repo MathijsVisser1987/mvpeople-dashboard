@@ -639,4 +639,116 @@ app.get('/api/debug/activity-types', async (req, res) => {
   }
 });
 
+// Debug: comprehensive mapping verification — compare Vincere data vs dashboard mappings
+app.get('/api/debug/verify-mappings', async (req, res) => {
+  try {
+    const isAuth = await vincereService.isAuthenticated();
+    if (!isAuth) return res.json({ error: 'Not authenticated with Vincere' });
+
+    const { teamMembers } = await import('./config/team.js');
+    const activityService = (await import('./services/activityService.js')).default;
+    const { KPI_DEFINITIONS } = await import('./config/kpiTargets.js');
+
+    const results = {
+      timestamp: new Date().toISOString(),
+      teamMembers: teamMembers.map(m => ({
+        name: m.shortName, vincereId: m.vincereId, email: m.email, targetProfile: m.targetProfile,
+      })),
+      activityNameCountsPerUser: {},
+      dealComparison: {},
+      kpiMappingVerification: {},
+      dealSearchResults: null,
+    };
+
+    // 1. Fetch activities and show per-user activity_name distribution
+    try {
+      const actData = await activityService.getAllTeamActivities();
+      for (const m of teamMembers) {
+        const userAct = actData[m.vincereId];
+        if (userAct) {
+          results.activityNameCountsPerUser[m.shortName] = {
+            totalActivities: userAct.totalActivities,
+            activityPoints: userAct.activityPoints,
+            byActivityName: userAct.byActivityName || {},
+            byType: userAct.byType || {},
+          };
+        }
+      }
+    } catch (err) {
+      results.activityError = err.message;
+    }
+
+    // 2. Deal comparison: placement scan vs activity count vs deal search
+    try {
+      const scanResult = await vincereService.getAllTeamDeals(teamMembers);
+      const dealSearchResult = await vincereService.getDealStats(teamMembers);
+
+      for (const m of teamMembers) {
+        const scanStats = scanResult.stats?.[m.vincereId] || { deals: 0 };
+        const dealSearch = dealSearchResult[m.vincereId] || { dealCount: 0, pipelineValue: 0 };
+        const actNames = results.activityNameCountsPerUser[m.shortName]?.byActivityName || {};
+        const activityDeals = (actNames.PLACEMENT_PERMANENT || 0) + (actNames.PLACEMENT_CONTRACT || 0);
+
+        results.dealComparison[m.shortName] = {
+          placementScan: scanStats.deals || 0,
+          activityBased: activityDeals,
+          dealSearch: dealSearch.dealCount,
+          pipelineFromScan: scanStats.pipelineValue || 0,
+          pipelineFromDealSearch: dealSearch.pipelineValue,
+          dashboardWouldShow: Math.max(scanStats.deals || 0, activityDeals),
+        };
+      }
+      results.scanComplete = scanResult.scanComplete;
+    } catch (err) {
+      results.dealError = err.message;
+    }
+
+    // 3. KPI mapping verification — show what each KPI tracks and current counts
+    for (const [kpiKey, kpiDef] of Object.entries(KPI_DEFINITIONS)) {
+      const perUser = {};
+      for (const m of teamMembers) {
+        const actNames = results.activityNameCountsPerUser[m.shortName]?.byActivityName || {};
+        if (kpiDef.source === 'deals') {
+          perUser[m.shortName] = results.dealComparison[m.shortName]?.dashboardWouldShow || 0;
+        } else {
+          let count = 0;
+          for (const name of kpiDef.activityNames) {
+            count += actNames[name] || 0;
+          }
+          perUser[m.shortName] = count;
+        }
+      }
+      results.kpiMappingVerification[kpiKey] = {
+        label: kpiDef.label,
+        emoji: kpiDef.emoji,
+        activityNames: kpiDef.activityNames,
+        source: kpiDef.source || 'activity_name',
+        countsPerUser: perUser,
+      };
+    }
+
+    // 4. Try to fetch raw deal objects to show their fields
+    try {
+      const dealData = await vincereService._apiGet(
+        '/deal/search/fl=id,title,status,created_by,owner,value,nfi,margin,fee,created_date,closed_date;sort=created_date desc',
+        { start: 0 }
+      );
+      const items = dealData?.result?.items || [];
+      results.dealSearchResults = {
+        total: dealData?.result?.total || 0,
+        sampleDeals: items.slice(0, 5).map(d => ({
+          ...d,
+          allKeys: Object.keys(d),
+        })),
+      };
+    } catch (err) {
+      results.dealSearchResults = { error: err.message };
+    }
+
+    res.json(results);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default app;

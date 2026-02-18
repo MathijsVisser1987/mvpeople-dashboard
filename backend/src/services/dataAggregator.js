@@ -89,6 +89,7 @@ async function getDailyCallStats(daysBack = 3) {
 
 // Get placement/deal stats from Vincere
 // Strategy: fetch all jobs, group by created_by.id, check placements per job
+// Also tries /deal/search for pipeline values
 async function getDealStats() {
   const stats = {};
   let scanComplete = false;
@@ -106,6 +107,25 @@ async function getDealStats() {
     }
   } catch (err) {
     console.error('[Aggregator] Vincere fetch error:', err.message);
+  }
+
+  // Supplement pipeline value from /deal/search if placement scan didn't yield values
+  try {
+    const dealSearchStats = await vincereService.getDealStats(teamMembers);
+    for (const m of teamMembers) {
+      const dealData = dealSearchStats[m.vincereId];
+      if (dealData && dealData.pipelineValue > 0) {
+        if (!stats[m.vincereId]) {
+          stats[m.vincereId] = { deals: 0, activePlacements: 0, pipelineValue: 0 };
+        }
+        // Use deal search pipeline value if placement scan didn't find any
+        if (!stats[m.vincereId].pipelineValue) {
+          stats[m.vincereId].pipelineValue = dealData.pipelineValue;
+        }
+      }
+    }
+  } catch (err) {
+    console.log('[Aggregator] Deal search supplemental error:', err.message);
   }
 
   return { stats, scanComplete };
@@ -192,7 +212,17 @@ export async function buildLeaderboard() {
 
     const callsMade = calls.callsMade || calls.externalCallsMade || 0;
     const talkTimeMinutes = calls.totalTalkTimeMinutes || 0;
-    const dealsCount = deals.deals || 0;
+
+    // Deal counting: use MAX of placement scan and activity-based count
+    // Activity-based is fast & reliable; scan is slow but has renewal filtering
+    const scanDeals = deals.deals || 0;
+    const activityDeals =
+      (activities.byActivityName?.PLACEMENT_PERMANENT || 0) +
+      (activities.byActivityName?.PLACEMENT_CONTRACT || 0);
+    const dealsCount = Math.max(scanDeals, activityDeals);
+    if (activityDeals > 0 && scanDeals !== activityDeals) {
+      console.log(`[Aggregator] ${member.shortName} deal count: scan=${scanDeals}, activities=${activityDeals}, using=${dealsCount}`);
+    }
     const pipelineValue = deals.pipelineValue || 0;
 
     // Activity points: subtract deal/placement-related category points to avoid double-counting

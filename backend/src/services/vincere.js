@@ -428,6 +428,12 @@ class VincereService {
                   stats[vincereId].deals++;
                   if (placement.status !== 'terminated' && placement.status !== 'cancelled') {
                     stats[vincereId].activePlacements++;
+                    // Accumulate pipeline value from placement financial fields
+                    const fee = placement.nfi || placement.fee || placement.margin ||
+                                placement.total_fee || placement.value || 0;
+                    if (typeof fee === 'number' && fee > 0) {
+                      stats[vincereId].pipelineValue += fee;
+                    }
                   }
                 } else if (placedByEmail) {
                   unmatchedEmails[placedByEmail] = (unmatchedEmails[placedByEmail] || 0) + 1;
@@ -474,6 +480,81 @@ class VincereService {
     }
 
     return { stats, scanComplete: isComplete };
+  }
+
+  // Search Vincere deals for pipeline value (uses /deal/search endpoint)
+  async getDealStats(teamMembers) {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const stats = {};
+    for (const m of teamMembers) {
+      stats[m.vincereId] = { dealCount: 0, pipelineValue: 0, wonValue: 0 };
+    }
+
+    // Build vincereId set and email lookup for matching
+    const idSet = new Set(teamMembers.map(m => m.vincereId));
+    const emailToId = {};
+    for (const m of teamMembers) {
+      if (m.email) emailToId[m.email.toLowerCase()] = m.vincereId;
+    }
+
+    try {
+      let start = 0;
+      let total = null;
+      const maxPages = 20;
+
+      while (total === null || start < total) {
+        if (start / 10 >= maxPages) break;
+
+        const data = await this._apiGet(
+          '/deal/search/fl=id,title,status,created_by,owner,value,nfi,margin,fee,created_date,closed_date;sort=created_date desc',
+          { start }
+        );
+        const items = data?.result?.items || [];
+        if (total === null) total = data?.result?.total || 0;
+        if (items.length === 0) break;
+
+        for (const deal of items) {
+          // Only count deals from current month
+          const dealDate = deal.closed_date || deal.created_date;
+          if (dealDate) {
+            const d = new Date(dealDate);
+            if (d < monthStart) continue;
+          }
+
+          // Try to match deal to team member via owner or created_by
+          let vincereId = null;
+          if (deal.owner?.id && idSet.has(deal.owner.id)) {
+            vincereId = deal.owner.id;
+          } else if (deal.created_by?.id && idSet.has(deal.created_by.id)) {
+            vincereId = deal.created_by.id;
+          } else if (deal.owner?.email && emailToId[deal.owner.email.toLowerCase()]) {
+            vincereId = emailToId[deal.owner.email.toLowerCase()];
+          } else if (deal.created_by?.email && emailToId[deal.created_by.email.toLowerCase()]) {
+            vincereId = emailToId[deal.created_by.email.toLowerCase()];
+          }
+
+          if (vincereId && stats[vincereId]) {
+            const value = deal.nfi || deal.value || deal.fee || deal.margin || 0;
+            stats[vincereId].dealCount++;
+            stats[vincereId].pipelineValue += (typeof value === 'number' ? value : 0);
+            if (deal.status === 'WON' || deal.status === 'won' || deal.status === 'CLOSED_WON') {
+              stats[vincereId].wonValue += (typeof value === 'number' ? value : 0);
+            }
+          }
+        }
+
+        start += items.length;
+      }
+
+      console.log('[Vincere] Deal search complete:', JSON.stringify(
+        Object.fromEntries(teamMembers.map(m => [m.shortName, stats[m.vincereId]]))
+      ));
+    } catch (err) {
+      console.log('[Vincere] Deal search error (endpoint may not exist):', err.message);
+    }
+
+    return stats;
   }
 }
 

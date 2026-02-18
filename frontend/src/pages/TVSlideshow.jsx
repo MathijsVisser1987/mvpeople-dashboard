@@ -8,6 +8,7 @@ import TopPerformerSlide from '../components/tv/TopPerformerSlide';
 import CompetitionSlide from '../components/tv/CompetitionSlide';
 import RecentWinsSlide from '../components/tv/RecentWinsSlide';
 import TeamTargetsSlide from '../components/tv/TeamTargetsSlide';
+import IndividualSlide from '../components/tv/IndividualSlide';
 import CelebrationOverlay from '../components/tv/CelebrationOverlay';
 
 const SLIDE_DURATION = 12000; // 12 seconds per slide
@@ -21,7 +22,9 @@ export default function TVSlideshow() {
   const leaderboard = data?.leaderboard || [];
   const teamStats = data?.teamStats || {};
 
-  const slides = ['leaderboard', 'top-performer', 'competition', 'recent-wins', 'team-targets'];
+  const groupSlides = ['leaderboard', 'top-performer', 'competition', 'recent-wins', 'team-targets'];
+  const individualSlides = leaderboard.map((_, i) => `individual-${i}`);
+  const slides = [...groupSlides, ...individualSlides];
 
   // Add tv-mode class to body
   useEffect(() => {
@@ -50,7 +53,8 @@ export default function TVSlideshow() {
   }, [unseen, showCelebration, markSeen]);
 
   const renderSlide = () => {
-    switch (slides[currentSlide]) {
+    const slideName = slides[currentSlide];
+    switch (slideName) {
       case 'leaderboard':
         return <LeaderboardSlide members={leaderboard} />;
       case 'top-performer':
@@ -62,6 +66,10 @@ export default function TVSlideshow() {
       case 'team-targets':
         return <TeamTargetsSlide stats={teamStats} members={leaderboard} />;
       default:
+        if (slideName?.startsWith('individual-')) {
+          const index = parseInt(slideName.split('-')[1], 10);
+          return <IndividualSlide member={leaderboard[index]} />;
+        }
         return null;
     }
   };
