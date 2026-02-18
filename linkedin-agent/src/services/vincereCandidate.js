@@ -39,6 +39,105 @@ async function vincereRequest(method, endpoint, body = null) {
   return response.json();
 }
 
+// ── Functional Expertise cache ──
+let expertiseCache = null;
+let expertiseCacheTime = 0;
+const EXPERTISE_CACHE_TTL = 60 * 60 * 1000; // 1 hour
+
+/**
+ * Get functional expertise options from Vincere.
+ * Returns { functional: [...], sub: { "Parent Name": [...] } }
+ *
+ * Tries multiple Vincere API endpoints since the endpoint can vary:
+ * - /candidate/functionalexpertise
+ * - /functionalexpertise
+ * - /settings/functionalexpertise
+ */
+export async function getFunctionalExpertise() {
+  // Return cached if fresh
+  if (expertiseCache && (Date.now() - expertiseCacheTime) < EXPERTISE_CACHE_TTL) {
+    return expertiseCache;
+  }
+
+  const endpoints = [
+    '/candidate/functionalexpertise',
+    '/functionalexpertise',
+    '/settings/functionalexpertise',
+    '/candidate/industries/functional_expertise',
+  ];
+
+  let functionalList = null;
+
+  for (const endpoint of endpoints) {
+    try {
+      const result = await vincereRequest('GET', endpoint);
+      if (result && (Array.isArray(result) || result.items || result.result)) {
+        functionalList = Array.isArray(result) ? result : (result.items || result.result || []);
+        console.log(`[Vincere] Loaded ${functionalList.length} functional expertise items from ${endpoint}`);
+        break;
+      }
+    } catch (err) {
+      // Try next endpoint
+      console.log(`[Vincere] ${endpoint} not available: ${err.message}`);
+    }
+  }
+
+  if (!functionalList) {
+    console.log('[Vincere] Could not fetch functional expertise from API, using empty list');
+    return { functional: [], sub: {} };
+  }
+
+  // Parse the response - Vincere may return flat list or nested structure
+  const result = { functional: [], sub: {} };
+
+  for (const item of functionalList) {
+    const name = item.name || item.label || item.value || (typeof item === 'string' ? item : null);
+    if (!name) continue;
+
+    result.functional.push(name);
+
+    // Try to get sub-expertise for this functional expertise
+    const subItems = item.children || item.sub_functional_expertise || item.sub_items || [];
+    if (subItems.length > 0) {
+      result.sub[name] = subItems.map(s => s.name || s.label || s.value || s).filter(Boolean);
+    }
+  }
+
+  // If we got functional items but no sub items, try fetching sub-expertise separately
+  if (result.functional.length > 0 && Object.keys(result.sub).length === 0) {
+    for (const funcName of result.functional.slice(0, 30)) { // Limit to avoid too many requests
+      try {
+        const subEndpoints = [
+          `/candidate/functionalexpertise/${encodeURIComponent(funcName)}/sub`,
+          `/candidate/subfunctionalexpertise?functional_expertise=${encodeURIComponent(funcName)}`,
+          `/subfunctionalexpertise?parent=${encodeURIComponent(funcName)}`,
+        ];
+
+        for (const subEndpoint of subEndpoints) {
+          try {
+            const subResult = await vincereRequest('GET', subEndpoint);
+            const subList = Array.isArray(subResult) ? subResult : (subResult?.items || subResult?.result || []);
+            if (subList.length > 0) {
+              result.sub[funcName] = subList.map(s => s.name || s.label || s.value || s).filter(Boolean);
+              break;
+            }
+          } catch {
+            // Try next sub-endpoint
+          }
+        }
+      } catch {
+        // Skip this functional expertise
+      }
+    }
+  }
+
+  expertiseCache = result;
+  expertiseCacheTime = Date.now();
+
+  console.log(`[Vincere] Expertise cache: ${result.functional.length} functional, ${Object.keys(result.sub).length} with sub-items`);
+  return result;
+}
+
 /**
  * Search for existing candidate by email
  */

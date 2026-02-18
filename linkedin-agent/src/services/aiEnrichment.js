@@ -10,6 +10,7 @@
 
 import OpenAI from 'openai';
 import { openaiConfig } from '../config/vincere.js';
+import { getFunctionalExpertise } from './vincereCandidate.js';
 
 let openai = null;
 
@@ -37,6 +38,33 @@ export async function enrichProfile(candidate) {
 
   const profileText = buildProfileText(candidate);
 
+  // Fetch actual functional expertise values from Vincere
+  let expertisePrompt = '';
+  try {
+    const expertise = await getFunctionalExpertise();
+    if (expertise.functional.length > 0) {
+      expertisePrompt = `\n\nBESCHIKBARE FUNCTIONAL EXPERTISE IN VINCERE (kies EXACT één hieruit):\n${expertise.functional.join(' | ')}`;
+
+      // Add sub-expertise per category
+      const subEntries = Object.entries(expertise.sub).filter(([, subs]) => subs.length > 0);
+      if (subEntries.length > 0) {
+        expertisePrompt += '\n\nBESCHIKBARE SUB FUNCTIONAL EXPERTISE PER CATEGORIE:';
+        for (const [parent, subs] of subEntries) {
+          expertisePrompt += `\n${parent}: ${subs.join(' | ')}`;
+        }
+      }
+    }
+  } catch (err) {
+    console.log(`[AI] Could not fetch expertise from Vincere: ${err.message}`);
+  }
+
+  // Build the expertise instruction based on whether we have Vincere data
+  const expertiseInstruction = expertisePrompt
+    ? `"functionalExpertise": "Kies EXACT één waarde uit de BESCHIKBARE FUNCTIONAL EXPERTISE lijst hieronder. Gebruik exact dezelfde spelling.",
+  "subFunctionalExpertise": "Kies EXACT één waarde uit de BESCHIKBARE SUB FUNCTIONAL EXPERTISE lijst bij de gekozen functional expertise. Gebruik exact dezelfde spelling. Als er geen sub-lijst beschikbaar is, kies dan de meest passende omschrijving."`
+    : `"functionalExpertise": "Het hoofdgebied van expertise (bijv. Information Technology, Sales & Business Development, etc.)",
+  "subFunctionalExpertise": "Specifiekere sub-expertise (bijv. Software Development, Account Management, etc.)"`;
+
   const response = await client.chat.completions.create({
     model: openaiConfig.model,
     temperature: 0.3,
@@ -59,12 +87,10 @@ Antwoord altijd in het Nederlands, in JSON format met deze velden:
   "salaryIndication": "Geschatte salarisrange op basis van ervaring en functie (optioneel)",
   "redFlags": ["eventuele aandachtspunten, of lege array"],
   "matchingKeywords": ["zoektermen", "voor", "job", "matching"],
-  "functionalExpertise": "Het hoofdgebied van expertise. Kies EXACT één uit: Accounting & Finance | Administration & Office Support | Banking & Financial Services | Construction & Engineering | Customer Service | Education & Training | Executive Management | Healthcare & Medical | Hospitality & Tourism | Human Resources | Information Technology | Legal | Logistics & Supply Chain | Manufacturing & Production | Marketing & Communications | Media & Creative | Mining & Resources | Real Estate & Property | Retail & Consumer | Sales & Business Development | Science & Research | Trades & Services | Transport & Automotive",
-  "subFunctionalExpertise": "Een specifiekere sub-expertise binnen het hoofdgebied. Voorbeelden per categorie: IT → Software Development, Data Engineering, Cloud & DevOps, Cybersecurity, IT Support, IT Management, ERP/CRM, AI & Machine Learning. Finance → Financial Analysis, Controlling, Tax, Audit, Treasury. Sales → Account Management, Business Development, Inside Sales, Sales Management. HR → Recruitment, HR Business Partner, Learning & Development, Compensation & Benefits. Marketing → Digital Marketing, Content, Brand Management, Marketing Analytics. Kies de meest passende sub-expertise."
+  ${expertiseInstruction}
 }
 
-BELANGRIJK voor functionalExpertise: Gebruik EXACT de naam uit de lijst hierboven (Engelse benaming). Dit wordt direct in Vincere gezet als classificatie.
-BELANGRIJK voor subFunctionalExpertise: Wees zo specifiek mogelijk op basis van het profiel.`
+KRITISCH: Voor functionalExpertise en subFunctionalExpertise MOET je EXACT een waarde kiezen uit de beschikbare lijsten. Gebruik exact dezelfde spelling als in de lijst, geen variaties.${expertisePrompt}`
       },
       {
         role: 'user',

@@ -121,4 +121,21 @@ router.post('/enrich', async (req, res) => {
   }
 });
 
+/**
+ * GET /api/agent/expertise
+ *
+ * Get the functional expertise options configured in Vincere.
+ * Useful for debugging and verifying the mapping.
+ */
+router.get('/expertise', async (req, res) => {
+  try {
+    const { getFunctionalExpertise } = await import('../services/vincereCandidate.js');
+    const expertise = await getFunctionalExpertise();
+    res.json(expertise);
+  } catch (err) {
+    console.error('[API] Error fetching expertise:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;
