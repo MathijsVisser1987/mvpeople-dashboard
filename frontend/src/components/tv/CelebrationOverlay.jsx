@@ -62,7 +62,7 @@ export default function CelebrationOverlay({ celebration, onDismiss }) {
           initial={{ y: -40, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.2, duration: 0.5 }}
-          className="text-5xl font-black font-display text-mvp-accent mb-8"
+          className="text-[6vh] font-black font-display text-mvp-accent mb-[3vh]"
         >
           NEW DEAL CLOSED!
         </motion.div>
@@ -72,12 +72,13 @@ export default function CelebrationOverlay({ celebration, onDismiss }) {
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{ delay: 0.4, type: 'spring', stiffness: 200 }}
-          className="mx-auto mb-8 w-40 h-40 glow-teal"
+          className="mx-auto mb-[3vh] glow-teal"
+          style={{ width: '20vh', height: '20vh' }}
         >
           <Avatar
             member={{ name: celebration.recruiterName, avatar: celebration.recruiterAvatar, photo: celebration.recruiterPhoto, color: celebration.recruiterColor }}
-            size="w-40 h-40"
-            textSize="text-6xl"
+            size="w-full h-full"
+            textSize="text-[7vh]"
             borderWidth="4px"
           />
         </motion.div>
@@ -88,10 +89,10 @@ export default function CelebrationOverlay({ celebration, onDismiss }) {
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.6, duration: 0.5 }}
         >
-          <h2 className="text-7xl font-black font-display text-white mb-4">
+          <h2 className="text-[8vh] font-black font-display text-white mb-[1.5vh]">
             {celebration.recruiterName}
           </h2>
-          <div className="text-3xl text-mvp-accent font-display font-semibold">
+          <div className="text-[3.5vh] text-mvp-accent font-display font-semibold">
             Deal #{celebration.dealCount}
           </div>
         </motion.div>

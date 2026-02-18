@@ -67,10 +67,10 @@ export default function TVSlideshow() {
   };
 
   return (
-    <div className="fixed inset-0 bg-mvp-dark overflow-hidden flex flex-col">
+    <div className="fixed inset-0 w-screen h-screen bg-mvp-dark overflow-hidden flex flex-col">
       <TVHeader currentSlide={currentSlide} totalSlides={slides.length} />
 
-      <div className="flex-1 relative">
+      <div className="flex-1 relative min-h-0">
         <AnimatePresence mode="wait">
           <motion.div
             key={currentSlide}
@@ -78,7 +78,7 @@ export default function TVSlideshow() {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -40 }}
             transition={{ duration: 0.5 }}
-            className="absolute inset-0 flex items-center justify-center p-8"
+            className="absolute inset-0 flex items-center justify-center px-[2vw] py-[1vh]"
           >
             {renderSlide()}
           </motion.div>
@@ -86,12 +86,12 @@ export default function TVSlideshow() {
       </div>
 
       {/* Slide indicators */}
-      <div className="flex justify-center gap-2 pb-6">
+      <div className="flex justify-center gap-[0.5vw] pb-[1vh]">
         {slides.map((_, i) => (
           <div
             key={i}
-            className={`h-1.5 rounded-full transition-all duration-500 ${
-              i === currentSlide ? 'w-8 bg-mvp-accent' : 'w-3 bg-mvp-border'
+            className={`h-[0.3vh] rounded-full transition-all duration-500 ${
+              i === currentSlide ? 'w-[2vw] bg-mvp-accent' : 'w-[0.8vw] bg-mvp-border'
             }`}
           />
         ))}

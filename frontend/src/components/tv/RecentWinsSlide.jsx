@@ -15,36 +15,36 @@ export default function RecentWinsSlide({ celebrations }) {
   if (!celebrations || celebrations.length === 0) {
     return (
       <div className="text-center">
-        <PartyPopper size={64} className="text-mvp-accent mx-auto mb-6 opacity-30" />
-        <h2 className="text-4xl font-bold font-display text-white/30 mb-4">Recent Wins</h2>
-        <p className="text-xl text-white/20 font-body">No celebrations yet. Close a deal to be the first!</p>
+        <PartyPopper className="text-mvp-accent mx-auto mb-[3vh] opacity-30" style={{ width: '8vh', height: '8vh' }} />
+        <h2 className="text-[5vh] font-bold font-display text-white/30 mb-[2vh]">Recent Wins</h2>
+        <p className="text-[2.5vh] text-white/20 font-body">No celebrations yet. Close a deal to be the first!</p>
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-[1200px]">
-      <div className="flex items-center gap-3 mb-8">
-        <PartyPopper size={36} className="text-mvp-accent" />
-        <h2 className="text-4xl font-bold font-display">Recent Wins</h2>
+    <div className="w-full max-w-[90vw]">
+      <div className="flex items-center gap-[0.8vw] mb-[3vh]">
+        <PartyPopper className="text-mvp-accent" style={{ width: '3.5vh', height: '3.5vh' }} />
+        <h2 className="text-[4vh] font-bold font-display">Recent Wins</h2>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-[1vw]">
         {celebrations.slice(0, 8).map((cel) => (
           <div
             key={cel.id}
-            className="bg-mvp-card rounded-2xl border border-mvp-border p-6 flex items-center gap-5"
+            className="bg-mvp-card rounded-[1.5vh] border border-mvp-border p-[2vh] flex items-center gap-[1vw]"
           >
             <Avatar
               member={{ name: cel.recruiterName, avatar: cel.recruiterAvatar, photo: cel.recruiterPhoto, color: cel.recruiterColor }}
-              size="w-16 h-16"
-              textSize="text-2xl"
+              size="w-[7vh] h-[7vh]"
+              textSize="text-[2.5vh]"
               borderWidth="3px"
             />
             <div className="flex-1 min-w-0">
-              <h3 className="text-2xl font-bold text-white font-display">{cel.recruiterName}</h3>
-              <p className="text-lg text-mvp-accent font-display">Deal #{cel.dealCount}</p>
-              <p className="text-sm text-white/30 font-body">{timeAgo(cel.timestamp)}</p>
+              <h3 className="text-[3vh] font-bold text-white font-display">{cel.recruiterName}</h3>
+              <p className="text-[2vh] text-mvp-accent font-display">Deal #{cel.dealCount}</p>
+              <p className="text-[1.3vh] text-white/30 font-body">{timeAgo(cel.timestamp)}</p>
             </div>
           </div>
         ))}

@@ -70,9 +70,14 @@ h1, h2, h3, h4, h5, h6,
 }
 
 /* TV Mode */
-.tv-mode {
-  cursor: none;
+.tv-mode,
+.tv-mode html {
+  margin: 0;
+  padding: 0;
   overflow: hidden;
+  width: 100vw;
+  height: 100vh;
+  cursor: none;
 }
 .tv-mode * {
   user-select: none;

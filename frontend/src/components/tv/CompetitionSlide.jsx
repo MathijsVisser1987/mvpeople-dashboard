@@ -13,7 +13,7 @@ const CHALLENGE = {
 function ProgressBar({ current, target, color }) {
   const pct = Math.min((current / target) * 100, 100);
   return (
-    <div className="w-full h-4 bg-mvp-dark rounded-full overflow-hidden">
+    <div className="w-full h-[1.2vh] bg-mvp-dark rounded-full overflow-hidden">
       <div
         className="h-full rounded-full transition-all duration-500"
         style={{ width: `${pct}%`, backgroundColor: color }}
@@ -41,29 +41,29 @@ export default function CompetitionSlide({ members }) {
   })).sort((a, b) => (b.deals + b.calls / CHALLENGE.targets.calls) - (a.deals + a.calls / CHALLENGE.targets.calls));
 
   return (
-    <div className="w-full max-w-[1400px]">
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-3">
-          <Target size={36} className="text-mvp-accent" />
+    <div className="w-full max-w-[90vw]">
+      <div className="flex items-center justify-between mb-[2.5vh]">
+        <div className="flex items-center gap-[0.8vw]">
+          <Target className="text-mvp-accent" style={{ width: '3.5vh', height: '3.5vh' }} />
           <div>
-            <h2 className="text-4xl font-bold font-display">{CHALLENGE.name}</h2>
-            <p className="text-lg text-white/40 font-body">{CHALLENGE.description}</p>
+            <h2 className="text-[4vh] font-bold font-display">{CHALLENGE.name}</h2>
+            <p className="text-[1.8vh] text-white/40 font-body">{CHALLENGE.description}</p>
           </div>
         </div>
 
         {/* Countdown */}
-        <div className="flex items-center gap-3">
-          <Clock size={24} className="text-white/40" />
-          <div className="flex gap-2">
+        <div className="flex items-center gap-[0.8vw]">
+          <Clock className="text-white/40" style={{ width: '2.5vh', height: '2.5vh' }} />
+          <div className="flex gap-[0.4vw]">
             {[
               { value: time.days, label: 'D' },
               { value: time.hours, label: 'H' },
               { value: time.minutes, label: 'M' },
               { value: time.seconds, label: 'S' },
             ].map(({ value, label }) => (
-              <div key={label} className="bg-mvp-card rounded-xl px-4 py-3 text-center border border-mvp-border min-w-[60px]">
-                <div className="text-2xl font-bold text-white font-mono">{String(value).padStart(2, '0')}</div>
-                <div className="text-[10px] text-white/30 uppercase tracking-widest font-display">{label}</div>
+              <div key={label} className="bg-mvp-card rounded-[0.8vh] px-[0.8vw] py-[0.8vh] text-center border border-mvp-border min-w-[3vw]">
+                <div className="text-[2.5vh] font-bold text-white font-mono">{String(value).padStart(2, '0')}</div>
+                <div className="text-[0.9vh] text-white/30 uppercase tracking-widest font-display">{label}</div>
               </div>
             ))}
           </div>
@@ -71,40 +71,40 @@ export default function CompetitionSlide({ members }) {
       </div>
 
       {/* Targets */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
-        <div className="bg-mvp-card rounded-xl p-5 border border-mvp-border">
-          <span className="text-sm text-white/40 uppercase tracking-wider font-display">Deal Target</span>
-          <div className="text-3xl font-bold text-mvp-success font-display">{CHALLENGE.targets.deals} deals</div>
+      <div className="grid grid-cols-2 gap-[1vw] mb-[2vh]">
+        <div className="bg-mvp-card rounded-[1vh] p-[1.5vh] border border-mvp-border">
+          <span className="text-[1.3vh] text-white/40 uppercase tracking-wider font-display">Deal Target</span>
+          <div className="text-[3.5vh] font-bold text-mvp-success font-display">{CHALLENGE.targets.deals} deals</div>
         </div>
-        <div className="bg-mvp-card rounded-xl p-5 border border-mvp-border">
-          <span className="text-sm text-white/40 uppercase tracking-wider font-display">Call Target</span>
-          <div className="text-3xl font-bold text-mvp-accent font-display">{CHALLENGE.targets.calls} calls</div>
+        <div className="bg-mvp-card rounded-[1vh] p-[1.5vh] border border-mvp-border">
+          <span className="text-[1.3vh] text-white/40 uppercase tracking-wider font-display">Call Target</span>
+          <div className="text-[3.5vh] font-bold text-mvp-accent font-display">{CHALLENGE.targets.calls} calls</div>
         </div>
       </div>
 
       {/* Participant progress */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-[0.8vw]">
         {participants.map(p => (
-          <div key={p.name} className="bg-mvp-card rounded-xl p-5 border border-mvp-border">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-3">
-                <Avatar member={p} size="w-10 h-10" textSize="text-sm" />
-                <span className="text-lg font-semibold font-display">{p.name}</span>
+          <div key={p.name} className="bg-mvp-card rounded-[1vh] p-[1.5vh] border border-mvp-border">
+            <div className="flex items-center justify-between mb-[1vh]">
+              <div className="flex items-center gap-[0.5vw]">
+                <Avatar member={p} size="w-[4vh] h-[4vh]" textSize="text-[1.5vh]" />
+                <span className="text-[2vh] font-semibold font-display">{p.name}</span>
               </div>
               {p.qualified && (
-                <span className="text-sm font-semibold text-mvp-success font-display">Qualified</span>
+                <span className="text-[1.3vh] font-semibold text-mvp-success font-display">Qualified</span>
               )}
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-[1vw]">
               <div>
-                <div className="flex justify-between text-sm text-white/40 mb-1 font-display">
+                <div className="flex justify-between text-[1.2vh] text-white/40 mb-[0.3vh] font-display">
                   <span>Deals</span>
                   <span>{p.deals}/{CHALLENGE.targets.deals}</span>
                 </div>
                 <ProgressBar current={p.deals} target={CHALLENGE.targets.deals} color="#00e676" />
               </div>
               <div>
-                <div className="flex justify-between text-sm text-white/40 mb-1 font-display">
+                <div className="flex justify-between text-[1.2vh] text-white/40 mb-[0.3vh] font-display">
                   <span>Calls</span>
                   <span>{p.calls}/{CHALLENGE.targets.calls}</span>
                 </div>
