@@ -15,6 +15,7 @@
 import { normalizeCandidate, validateCandidate } from './linkedinParser.js';
 import { enrichProfile, matchCandidateToJobs, parseUnstructuredProfile } from './aiEnrichment.js';
 import {
+  searchCandidateByLinkedIn,
   searchCandidateByEmail,
   searchCandidateByName,
   createCandidate,
@@ -70,30 +71,43 @@ export async function processCandidate(input, options = {}) {
     result.steps[1].status = 'done';
     result.steps[1].detail = `${candidate.firstName} ${candidate.lastName}`;
 
-    // Step 3: Check duplicates
+    // Step 3: Check duplicates (LinkedIn URL → email → naam)
     result.steps.push({ step: 'duplicate_check', status: 'running' });
     let existingCandidate = null;
+    let matchedOn = null;
 
-    if (candidate.email) {
-      existingCandidate = await searchCandidateByEmail(candidate.email);
+    // First: check by LinkedIn URL (most specific)
+    if (candidate.linkedinUrl) {
+      existingCandidate = await searchCandidateByLinkedIn(candidate.linkedinUrl);
+      if (existingCandidate) matchedOn = 'LinkedIn URL';
     }
+
+    // Second: check by email
+    if (!existingCandidate && candidate.email) {
+      existingCandidate = await searchCandidateByEmail(candidate.email);
+      if (existingCandidate) matchedOn = 'email';
+    }
+
+    // Third: check by name (least specific)
     if (!existingCandidate) {
       const nameMatches = await searchCandidateByName(candidate.firstName, candidate.lastName);
       if (nameMatches.length === 1) {
         existingCandidate = nameMatches[0];
+        matchedOn = 'naam';
       } else if (nameMatches.length > 1) {
         result.steps[2].status = 'warning';
-        result.steps[2].detail = `${nameMatches.length} mogelijke duplicaten gevonden`;
+        result.steps[2].detail = `${nameMatches.length} mogelijke duplicaten gevonden op naam`;
         result.steps[2].duplicates = nameMatches;
       }
     }
 
     if (existingCandidate && !options.forceCreate) {
       result.steps[2].status = 'duplicate';
-      result.steps[2].detail = `Kandidaat bestaat al in Vincere (ID: ${existingCandidate.id})`;
+      result.steps[2].detail = `Kandidaat bestaat al in Vincere (ID: ${existingCandidate.id}, gevonden op ${matchedOn})`;
       result.vincereId = existingCandidate.id;
       result.status = 'duplicate';
       result.duplicate = existingCandidate;
+      result.matchedOn = matchedOn;
       return result;
     }
     result.steps[2].status = result.steps[2].status || 'done';

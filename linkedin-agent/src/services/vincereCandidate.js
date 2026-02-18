@@ -56,6 +56,33 @@ export async function searchCandidateByEmail(email) {
 }
 
 /**
+ * Search for existing candidate by LinkedIn URL
+ */
+export async function searchCandidateByLinkedIn(linkedinUrl) {
+  if (!linkedinUrl) return null;
+  try {
+    // Search in candidate social/web profiles for the LinkedIn URL
+    const vanityName = linkedinUrl.match(/linkedin\.com\/in\/([^/?]+)/)?.[1];
+    if (!vanityName) return null;
+
+    // Try searching by LinkedIn vanity name in the candidate index
+    const result = await vincereRequest('GET', `/candidate/search/fl=id,name,email&q=linkedin:${encodeURIComponent(vanityName)}`);
+    if (result?.result?.items?.length > 0) {
+      return result.result.items[0];
+    }
+
+    // Fallback: search with the full URL as a keyword
+    const resultFull = await vincereRequest('GET', `/candidate/search/fl=id,name,email&q=${encodeURIComponent(linkedinUrl)}`);
+    if (resultFull?.result?.items?.length > 0) {
+      return resultFull.result.items[0];
+    }
+  } catch (err) {
+    console.log(`[Vincere] Search by LinkedIn URL failed: ${err.message}`);
+  }
+  return null;
+}
+
+/**
  * Search for existing candidate by name
  */
 export async function searchCandidateByName(firstName, lastName) {
