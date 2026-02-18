@@ -140,8 +140,8 @@ class EightByEightService {
 
   async _doAuth() {
     try {
-      const username = process.env.EIGHT_BY_EIGHT_USERNAME;
-      const password = process.env.EIGHT_BY_EIGHT_PASSWORD;
+      const username = process.env.EIGHT_BY_EIGHT_USERNAME?.trim();
+      const password = process.env.EIGHT_BY_EIGHT_PASSWORD?.trim();
       if (!username || !password) {
         throw new Error('EIGHT_BY_EIGHT_NOT_AUTHENTICATED');
       }
