@@ -7,7 +7,6 @@ import celebrationRoutes from './routes/celebrations.js';
 import historyRoutes from './routes/history.js';
 import leagueRoutes from './routes/leagues.js';
 import missionRoutes from './routes/missions.js';
-import settingsRoutes from './routes/settings.js';
 import vincereService from './services/vincere.js';
 
 dotenv.config();
@@ -39,7 +38,39 @@ app.use('/api/celebrations', celebrationRoutes);
 app.use('/api/history', historyRoutes);
 app.use('/api/leagues', leagueRoutes);
 app.use('/api/missions', missionRoutes);
-app.use('/api/settings', settingsRoutes);
+
+// Settings routes — inline to avoid import issues in serverless
+app.get('/api/settings/targets', async (req, res) => {
+  try {
+    if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
+      return res.json({});
+    }
+    const { Redis } = await import('@upstash/redis');
+    const redis = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
+    const data = await redis.get('kpi-target-overrides');
+    if (!data) return res.json({});
+    const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+    res.json(parsed);
+  } catch (err) {
+    console.error('[Settings] Error loading targets:', err.message);
+    res.status(500).json({ error: 'Failed to load target settings' });
+  }
+});
+
+app.post('/api/settings/targets', async (req, res) => {
+  try {
+    if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
+      return res.status(503).json({ error: 'Redis not available' });
+    }
+    const { Redis } = await import('@upstash/redis');
+    const redis = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
+    await redis.set('kpi-target-overrides', JSON.stringify(req.body));
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[Settings] Error saving targets:', err.message);
+    res.status(500).json({ error: 'Failed to save target settings' });
+  }
+});
 
 // Health check
 app.get('/api/health', (req, res) => {
