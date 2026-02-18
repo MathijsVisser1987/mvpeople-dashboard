@@ -11,33 +11,29 @@ function CircularProgress({ value, max, color, label, displayValue }) {
 
   return (
     <div className="text-center">
-      <svg
-        viewBox="0 0 100 100"
-        className="mx-auto mb-[0.8vh]"
-        style={{ width: '13vh', height: '13vh' }}
-      >
-        <circle
-          cx="50" cy="50" r={radius}
-          fill="none" stroke="#163478" strokeWidth={strokeWidth}
-        />
-        <circle
-          cx="50" cy="50" r={radius}
-          fill="none" stroke={color} strokeWidth={strokeWidth}
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-          transform="rotate(-90 50 50)"
-          className="transition-all duration-1000"
-        />
-        <text x="50" y="45" textAnchor="middle" dominantBaseline="central"
-          fill="white" fontWeight="bold" fontFamily="Montserrat" fontSize="16">
-          {displayValue}
-        </text>
-        <text x="50" y="62" textAnchor="middle" dominantBaseline="central"
-          fill="rgba(255,255,255,0.4)" fontFamily="Montserrat" fontSize="10">
-          {Math.round(pct)}%
-        </text>
-      </svg>
+      <div className="relative mx-auto mb-[0.8vh]" style={{ width: '13vh', height: '13vh' }}>
+        {/* SVG ring only */}
+        <svg viewBox="0 0 100 100" className="w-full h-full">
+          <circle
+            cx="50" cy="50" r={radius}
+            fill="none" stroke="#163478" strokeWidth={strokeWidth}
+          />
+          <circle
+            cx="50" cy="50" r={radius}
+            fill="none" stroke={color} strokeWidth={strokeWidth}
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            strokeLinecap="round"
+            transform="rotate(-90 50 50)"
+            className="transition-all duration-1000"
+          />
+        </svg>
+        {/* HTML text overlay — always centered */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-[2.2vh] font-bold text-white font-display leading-tight">{displayValue}</span>
+          <span className="text-[1.3vh] text-white/40 font-display leading-tight">{Math.round(pct)}%</span>
+        </div>
+      </div>
       <div className="text-[1.6vh] font-display font-semibold text-white/60">{label}</div>
     </div>
   );

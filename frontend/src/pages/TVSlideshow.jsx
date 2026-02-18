@@ -86,7 +86,7 @@ export default function TVSlideshow() {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -40 }}
             transition={{ duration: 0.5 }}
-            className="absolute inset-0 flex items-center justify-center px-[2vw] py-[1vh]"
+            className="absolute inset-0 flex items-center justify-center px-[2vw] py-[2vh] overflow-hidden"
           >
             {renderSlide()}
           </motion.div>

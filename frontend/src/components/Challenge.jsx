@@ -2,11 +2,17 @@ import { useState, useEffect } from 'react';
 import { Target, Clock, CheckCircle2, XCircle } from 'lucide-react';
 import { getTimeRemaining } from '../utils/formatters';
 
+// End of current month
+function endOfMonth() {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+}
+
 // Challenge config - editable
 const CHALLENGE_CONFIG = {
   name: 'Lunchclub Sprint',
   description: 'Hit your individual deal target to win lunch on the company!',
-  endDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+  endDate: endOfMonth(),
 };
 
 // Individual deal targets per team member (by shortName)
@@ -141,8 +147,8 @@ export default function Challenge({ members }) {
       </div>
 
       {/* Lunchclub sfeer foto */}
-      <div className="mt-4 rounded-xl overflow-hidden max-h-40">
-        <img src="/Lunchclub.png" alt="Lunchclub" className="w-full h-full object-cover rounded-xl opacity-80" />
+      <div className="mt-4 rounded-xl overflow-hidden" style={{ height: '160px' }}>
+        <img src="/Lunchclub.png" alt="Lunchclub" className="w-full object-cover rounded-xl opacity-80" style={{ height: '160px' }} />
       </div>
     </div>
   );

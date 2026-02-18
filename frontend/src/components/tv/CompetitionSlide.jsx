@@ -3,10 +3,16 @@ import { Target, Clock } from 'lucide-react';
 import { getTimeRemaining } from '../../utils/formatters';
 import Avatar from '../Avatar';
 
+// End of current month
+function endOfMonth() {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+}
+
 const CHALLENGE = {
   name: 'Lunchclub Sprint',
   description: 'Hit your individual deal target to win lunch on the company!',
-  endDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+  endDate: endOfMonth(),
 };
 
 // Individual deal targets per team member (by shortName)
@@ -116,8 +122,8 @@ export default function CompetitionSlide({ members }) {
       </div>
 
       {/* Lunchclub sfeer foto */}
-      <div className="mt-[1.5vh] rounded-[1.5vh] overflow-hidden" style={{ maxHeight: '14vh' }}>
-        <img src="/Lunchclub.png" alt="Lunchclub" className="w-full h-full object-cover rounded-[1.5vh] opacity-80" />
+      <div className="mt-[1.5vh] rounded-[1.5vh] overflow-hidden" style={{ height: '12vh' }}>
+        <img src="/Lunchclub.png" alt="Lunchclub" className="w-full object-cover rounded-[1.5vh] opacity-80" style={{ height: '12vh' }} />
       </div>
     </div>
   );
