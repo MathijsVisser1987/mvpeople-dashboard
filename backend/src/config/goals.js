@@ -158,71 +158,71 @@ export const ACTIVITY_POINTS_MAP = {
 
 // Points by activity_name (takes precedence over ACTIVITY_POINTS_MAP)
 export const ACTIVITY_NAME_POINTS = {
-  // Phone calls - Contact (Sales)
-  'PHONE_OUTBOUND_CONNECTED_WITH_CONTACT': 10,     // Goal 6: Sales Call - Cold/Follow-up 🚀
-  'PHONE_OUTBOUND_LEFT_MESSAGE_CONTACT': 15,        // Goal 7: Sales Call - Job Intake 🚀🚀🚀
-  'PHONE_OUTBOUND_NOT_CONNECTED_WITH_CONTACT': 10,  // Goal 8: Sales Call - Reference Check 🚀🚀
-  'PHONE_INBOUND_CONNECTED_WITH_CONTACT': 5,        // Goal 2: Contact - Inbound
-  'PHONE_INBOUND_LEFT_MESSAGE_CONTACT': 3,          // Goal 3: Left Voicemail
-  'PHONE_INBOUND_NOT_CONNECTED_WITH_CONTACT': 3,    // Goal 4: Whatsapp BD
+  // Phone calls - Contact (Sales Calls = 5 pts each)
+  'PHONE_OUTBOUND_CONNECTED_WITH_CONTACT': 5,      // Goal 6: Sales Call - Cold/Follow-up
+  'PHONE_OUTBOUND_LEFT_MESSAGE_CONTACT': 5,         // Goal 7: Sales Call - Job Intake
+  'PHONE_OUTBOUND_NOT_CONNECTED_WITH_CONTACT': 5,   // Goal 8: Sales Call - Reference Check
+  'PHONE_INBOUND_CONNECTED_WITH_CONTACT': 3,        // Goal 2: Contact - Inbound
+  'PHONE_INBOUND_LEFT_MESSAGE_CONTACT': 2,          // Goal 3: Left Voicemail
+  'PHONE_INBOUND_NOT_CONNECTED_WITH_CONTACT': 2,    // Goal 4: Whatsapp BD
 
   // Phone calls - Candidate (Recruitment)
-  'PHONE_OUTBOUND_CONNECTED_WITH_CANDIDATE': 30,    // Goal 14: Headhunt Call / Meeting 💎💎💎
-  'PHONE_OUTBOUND_LEFT_MESSAGE_CANDIDATE': 20,      // Goal 15: Call - Back Planned 💎💎
-  'PHONE_OUTBOUND_NOT_CONNECTED_WITH_CANDIDATE': 40, // Goal 16: Headhunt Completed 💎💎💎💎
-  'PHONE_INBOUND_CONNECTED_WITH_CANDIDATE': 10,     // Goal 10: Contractor Monitoring Call
-  'PHONE_INBOUND_LEFT_MESSAGE_CANDIDATE': 5,        // Goal 11: Left Voicemail 💎
-  'PHONE_INBOUND_NOT_CONNECTED_WITH_CANDIDATE': 5,  // Goal 12: Candidate Call 💎
+  'PHONE_OUTBOUND_CONNECTED_WITH_CANDIDATE': 5,     // Goal 14: Headhunt Call / Meeting
+  'PHONE_OUTBOUND_LEFT_MESSAGE_CANDIDATE': 3,       // Goal 15: Call - Back Planned
+  'PHONE_OUTBOUND_NOT_CONNECTED_WITH_CANDIDATE': 5, // Goal 16: Headhunt Completed
+  'PHONE_INBOUND_CONNECTED_WITH_CANDIDATE': 3,      // Goal 10: Contractor Monitoring Call
+  'PHONE_INBOUND_LEFT_MESSAGE_CANDIDATE': 2,        // Goal 11: Left Voicemail
+  'PHONE_INBOUND_NOT_CONNECTED_WITH_CANDIDATE': 2,  // Goal 12: Candidate Call
 
   // Emails
-  'EMAIL_SENT_TO_CONTACT': 5,      // Goal 17
-  'EMAIL_SENT_TO_CANDIDATE': 5,    // Goal 18
+  'EMAIL_SENT_TO_CONTACT': 2,      // Goal 17
+  'EMAIL_SENT_TO_CANDIDATE': 2,    // Goal 18
 
-  // Meetings - Contact
-  'MEETING_ARRANGED_WITH_CONTACT': 75,   // Goal 19: Client Meeting 🚀
-  'MEETING_ATTENDED_WITH_CONTACT': 10,   // Goal 20: LinkedIn Message 🚀
+  // Client Meeting = 10 pts
+  'MEETING_ARRANGED_WITH_CONTACT': 10,   // Goal 19: Client Meeting
+  'MEETING_ATTENDED_WITH_CONTACT': 5,    // Goal 20: LinkedIn Message
 
   // Meetings - Candidate
-  'MEETING_ARRANGED_WITH_CANDIDATE': 20, // Goal 21-23
-  'MEETING_ATTENDED_WITH_CANDIDATE': 10, // Goal 25: Introduction Meeting 💎 / Goal 26: LinkedIn InMail 💎
+  'MEETING_ARRANGED_WITH_CANDIDATE': 5,  // Goal 21-23
+  'MEETING_ATTENDED_WITH_CANDIDATE': 5,  // Goal 25-26
 
   // System actions
-  'NEW_COMPANY': 15,     // Goal 27: New client added 🚀
-  'NEW_CONTACT': 15,     // Goal 28: New hiring manager added 🚀
-  'NEW_JOB': 20,         // Goal 29: Job 💼
-  'NEW_CANDIDATE': 10,   // Goal 30: New Candidate added 💎
+  'NEW_COMPANY': 5,      // Goal 27: New client added
+  'NEW_CONTACT': 5,      // Goal 28: New hiring manager added
+  'NEW_JOB': 30,         // Goal 29: Job = 30 pts
+  'NEW_CANDIDATE': 1,    // Goal 30: New Candidate Added = 1 pt
 
   // CV / Application
-  'APPLIED': 10,                          // Goal 31: CV Applied 💎
-  'FLOATED': 25,                          // Goal 32: CV Sent - SPEC 💼
-  'SHORTLISTED': 15,                      // Goal 33
-  'MOVE_CANDIDATE_TO_SENT': 25,           // Goal 34: CV Sent - JOB 💼
-  'MOVE_APPLICATION_STAGE': 10,
+  'APPLIED': 5,                           // Goal 31: CV Applied
+  'FLOATED': 10,                          // Goal 32: CV Sent - SPEC = 10 pts
+  'SHORTLISTED': 5,                       // Goal 33
+  'MOVE_CANDIDATE_TO_SENT': 20,           // Goal 34: CV Sent - JOB = 20 pts
+  'MOVE_APPLICATION_STAGE': 5,
 
-  // Interviews
-  'MOVE_CANDIDATE_TO_1ST_INTERVIEW': 50,  // Goal 35: 1st Interview 💼
+  // Interviews — 1st Interview = 40 pts
+  'MOVE_CANDIDATE_TO_1ST_INTERVIEW': 40,  // Goal 35: 1st Interview
   'MOVE_CANDIDATE_TO_2ND_INTERVIEW': 40,  // Goal 36
   'MOVE_CANDIDATE_TO_3RD_INTERVIEW': 30,  // Goal 37
   'MOVE_CANDIDATE_TO_4TH_INTERVIEW': 25,  // Goal 38
   'OFFER': 50,                            // Goal 39
 
-  // Placements
+  // Placements — Deals = 500 pts
   'PLACEMENT_UPDATE_PLACEMENT': 10,       // Goals 40-42
   'PLACEMENT_PERMANENT': 500,
   'PLACEMENT_CONTRACT': 500,
 
-  // Job Leads
-  'JOB_LEAD_NEW': 20,           // Goal 48: Job Lead 💼
-  'JOB_LEAD': 20,
-  'NEW_JOB_LEAD': 20,
-  'JOB_LEAD_CONVERTED': 50,     // Goal 49: Job Lead Converted 💼
+  // Job Leads = 5 pts
+  'JOB_LEAD_NEW': 5,            // Goal 48: Job Lead
+  'JOB_LEAD': 5,
+  'NEW_JOB_LEAD': 5,
+  'JOB_LEAD_CONVERTED': 10,     // Goal 49: Job Lead Converted
 
   // SMS
-  'SMS_SENT_TO_CONTACT': 3,     // Goal 50
-  'SMS_SENT_TO_CANDIDATE': 3,   // Goal 51
+  'SMS_SENT_TO_CONTACT': 1,     // Goal 50
+  'SMS_SENT_TO_CANDIDATE': 1,   // Goal 51
 };
 
-export const DEFAULT_ACTIVITY_POINTS = 3;
+export const DEFAULT_ACTIVITY_POINTS = 1;
 
 // Display names for category:entity_type
 export const ACTIVITY_TYPE_NAMES = {

@@ -88,14 +88,14 @@ export const teamMembers = [
 
 // Points system
 export const POINTS_PER_DEAL = 500;
-export const POINTS_PER_CALL = 2;
-export const POINTS_PER_MINUTE_TALK = 1;
+export const POINTS_PER_CALL = 0.5;
+export const POINTS_PER_MINUTE_TALK = 0.25;
 
 export function calculatePoints(deals, calls, talkTimeMinutes, streakDays, activityPoints = 0) {
   const base = (deals * POINTS_PER_DEAL) + (calls * POINTS_PER_CALL) + (talkTimeMinutes * POINTS_PER_MINUTE_TALK) + activityPoints;
   if (streakDays >= 5) return Math.round(base * 2);
   if (streakDays >= 3) return Math.round(base * 1.5);
-  return base;
+  return Math.round(base);
 }
 
 export function getMultiplier(streakDays) {

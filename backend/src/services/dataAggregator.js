@@ -275,6 +275,13 @@ export async function buildLeaderboard() {
       totalActivities: activities.totalActivities || 0,
       activityTypes: activities.byType || {},
       kpis: kpiStatus,
+      // Headhunt Challenge for starters: 60 Headhunt Completed = €500 bonus
+      headhuntChallenge: member.targetProfile === 'starter' ? {
+        current: activities.byActivityName?.PHONE_OUTBOUND_NOT_CONNECTED_WITH_CANDIDATE || 0,
+        target: 60,
+        bonus: 500,
+        qualified: (activities.byActivityName?.PHONE_OUTBOUND_NOT_CONNECTED_WITH_CANDIDATE || 0) >= 60,
+      } : null,
     };
   });
 
