@@ -101,9 +101,13 @@ async function getDealStats() {
 
   try {
     const result = await vincereService.getAllTeamDeals(teamMembers);
-    scanComplete = result.scanComplete || false;
-    for (const [vincereId, data] of Object.entries(result.stats)) {
-      stats[vincereId] = data;
+    // result is { stats: {...}, scanComplete: bool }
+    const resultStats = result?.stats || result || {};
+    scanComplete = result?.scanComplete || false;
+    for (const [vincereId, data] of Object.entries(resultStats)) {
+      if (data && typeof data === 'object' && 'deals' in data) {
+        stats[vincereId] = data;
+      }
     }
   } catch (err) {
     console.error('[Aggregator] Vincere fetch error:', err.message);

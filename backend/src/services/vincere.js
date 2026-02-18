@@ -335,7 +335,7 @@ class VincereService {
     if (scanState && scanState.complete && scanState.timestamp &&
         Date.now() - scanState.timestamp < 60 * 60 * 1000) {
       console.log('[Vincere] Using completed scan from', new Date(scanState.timestamp).toISOString());
-      return scanState.stats;
+      return { stats: scanState.stats, scanComplete: true };
     }
 
     // Build email → vincereId lookup

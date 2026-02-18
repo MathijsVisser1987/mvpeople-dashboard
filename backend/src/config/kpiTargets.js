@@ -46,11 +46,18 @@ export const KPI_DEFINITIONS = {
     // Goal 26: Meeting attended with candidate (existing)
     activityNames: ['MEETING_ATTENDED_WITH_CANDIDATE'],
   },
+  jobs: {
+    key: 'jobs',
+    label: 'Jobs',
+    emoji: '📋',
+    // Goal 29: New Job created
+    activityNames: ['NEW_JOB'],
+  },
   jobLead: {
     key: 'jobLead',
     label: 'Job Lead',
     emoji: '💼',
-    activityNames: ['NEW_JOB', 'JOB_LEAD_NEW', 'JOB_LEAD', 'NEW_JOB_LEAD'],
+    activityNames: ['JOB_LEAD_NEW', 'JOB_LEAD', 'NEW_JOB_LEAD'],
   },
   newCandidate: {
     key: 'newCandidate',
@@ -109,6 +116,7 @@ export const TARGET_PROFILES = {
       callBackPlanned: 150,
       headhuntCompleted: 100,
       linkedInMessage: 100,
+      jobs: 5,
       jobLead: 3,
       newCandidate: 200,
     },
@@ -124,6 +132,7 @@ export const TARGET_PROFILES = {
       firstInterview: 20,
       clientMeeting: 10,
       deals: 3,
+      jobs: 10,
       jobLead: 5,
       newCandidate: 150,
     },
