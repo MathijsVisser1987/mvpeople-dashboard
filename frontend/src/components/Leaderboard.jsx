@@ -76,7 +76,7 @@ function MemberRow({ member, rank }) {
         {/* Name & Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="font-bold text-white truncate font-display">{member.name}</h3>
+            <h3 className="font-bold text-white font-display">{member.name}</h3>
             <StreakIndicator streak={member.streak} />
           </div>
           <p className="text-xs text-white/40 font-body">{member.role}</p>
@@ -99,40 +99,6 @@ function MemberRow({ member, rank }) {
               <span className="text-xs text-white/30">+{member.badges.length - 4}</span>
             )}
           </div>
-          {/* Activity category chips */}
-          {member.activities && Object.values(member.activities).some(c => c.count > 0) && (
-            <div className="flex gap-1 mt-0.5">
-              {Object.entries(member.activities)
-                .filter(([, cat]) => cat.count > 0)
-                .map(([key, cat]) => (
-                  <span
-                    key={key}
-                    className="text-[10px] px-1.5 py-0.5 rounded bg-mvp-dark border border-mvp-border"
-                    title={`${cat.label}: ${cat.count} activities`}
-                  >
-                    {cat.emoji} {cat.count}
-                  </span>
-                ))}
-            </div>
-          )}
-          {/* KPI progress bars (compact) */}
-          {member.kpis && member.kpis.length > 0 && (
-            <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
-              {member.kpis.slice(0, 5).map(kpi => (
-                <span
-                  key={kpi.key}
-                  className="text-[10px] font-display"
-                  title={`${kpi.label}: ${kpi.actual} / ${kpi.proRated} (target: ${kpi.target})`}
-                >
-                  <span className="opacity-50">{kpi.emoji}</span>{' '}
-                  <span className={kpi.onTrack ? 'text-emerald-400' : 'text-red-400'}>
-                    {kpi.actual}
-                  </span>
-                  <span className="text-white/25">/{kpi.proRated}</span>
-                </span>
-              ))}
-            </div>
-          )}
         </div>
 
         {/* Stats */}

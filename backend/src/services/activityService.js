@@ -296,8 +296,9 @@ class ActivityService {
       console.log(`[Activities] ${member.shortName}: ${results[member.vincereId].totalActivities} activities, ${results[member.vincereId].activityPoints} pts`);
     }
 
-    // Cache results
-    if (store) {
+    // Only cache if we actually fetched activities (don't cache empty results from 429s)
+    const totalFetched = Object.values(results).reduce((s, r) => s + r.totalActivities, 0);
+    if (store && totalFetched > 0) {
       try {
         await store.set(KV_ACTIVITIES_KEY, JSON.stringify({
           data: results,
@@ -306,6 +307,8 @@ class ActivityService {
       } catch (err) {
         console.log('[Activities] Cache write error:', err.message);
       }
+    } else if (totalFetched === 0) {
+      console.log('[Activities] Skipping cache write — no activities fetched (possible rate limit)');
     }
 
     return results;

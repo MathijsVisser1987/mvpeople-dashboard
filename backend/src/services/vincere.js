@@ -420,12 +420,21 @@ class VincereService {
 
         if (items.length === 0) break;
 
-        // Check placements for these jobs
+        // Check placements for these jobs (batch 3 at a time to avoid rate limits)
         const jobIds = items.map(j => j.id).filter(id => id && !scannedJobIds.has(id));
         if (jobIds.length > 0) {
-          const results = await Promise.allSettled(
-            jobIds.map(jobId => this.getJobPlacements(jobId))
-          );
+          const results = [];
+          const BATCH_SIZE = 3;
+          for (let b = 0; b < jobIds.length; b += BATCH_SIZE) {
+            const batch = jobIds.slice(b, b + BATCH_SIZE);
+            const batchResults = await Promise.allSettled(
+              batch.map(jobId => this.getJobPlacements(jobId))
+            );
+            results.push(...batchResults);
+            if (b + BATCH_SIZE < jobIds.length) {
+              await new Promise(r => setTimeout(r, 200)); // small pause between batches
+            }
+          }
 
           for (let i = 0; i < results.length; i++) {
             const result = results[i];

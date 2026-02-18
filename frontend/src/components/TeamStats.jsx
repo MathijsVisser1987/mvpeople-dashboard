@@ -61,7 +61,7 @@ export default function TeamStats({ stats, loading, targets }) {
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
       {items.map((stat) => {
         const pct = stat.target > 0 ? Math.min((stat.value / stat.target) * 100, 100) : 0;
         return (
