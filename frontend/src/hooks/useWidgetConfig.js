@@ -19,7 +19,7 @@ const DEFAULT_CONFIG = {
   },
   targets: {
     deals: 30,
-    calls: 3000,
+    calls: 2000,
     talkTime: 5000,
     pipeline: 500000,
   },

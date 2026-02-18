@@ -5,12 +5,19 @@ import { getTimeRemaining } from '../utils/formatters';
 // Challenge config - editable
 const CHALLENGE_CONFIG = {
   name: 'Lunchclub Sprint',
-  description: 'Most deals + calls this week wins lunch on the company',
+  description: 'Hit your individual deal target to win lunch on the company!',
   endDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
-  targets: {
-    deals: 3,
-    calls: 50,
-  },
+};
+
+// Individual deal targets per team member (by shortName)
+const DEAL_TARGETS = {
+  Marcos: 2,
+  Floris: 3,
+  Mathijs: 3,
+  Burcu: 1,
+  Milan: 1,
+  Viviana: 1,
+  Harry: 1,
 };
 
 function CountdownTimer({ endDate }) {
@@ -62,19 +69,23 @@ export default function Challenge({ members }) {
   const challenge = CHALLENGE_CONFIG;
   const memberList = members || [];
 
-  // Build participant progress from real data
+  // Build participant progress from real data with individual deal targets
   const participants = memberList.map(m => {
-    const dealsProgress = Math.min(m.deals || 0, challenge.targets.deals);
-    const callsProgress = Math.min(m.calls || 0, challenge.targets.calls);
+    const dealTarget = DEAL_TARGETS[m.name] || 1;
+    const deals = m.deals || 0;
     return {
       id: m.id,
       name: m.name,
       color: m.color,
-      dealsProgress,
-      callsProgress,
-      qualified: dealsProgress >= challenge.targets.deals && callsProgress >= challenge.targets.calls,
+      deals,
+      dealTarget,
+      qualified: deals >= dealTarget,
     };
-  }).sort((a, b) => (b.dealsProgress + b.callsProgress / challenge.targets.calls) - (a.dealsProgress + a.callsProgress / challenge.targets.calls));
+  }).sort((a, b) => {
+    const pctA = a.dealTarget > 0 ? a.deals / a.dealTarget : 0;
+    const pctB = b.dealTarget > 0 ? b.deals / b.dealTarget : 0;
+    return pctB - pctA;
+  });
 
   return (
     <div className="bg-mvp-card rounded-xl border border-mvp-accent/30 p-5 glow-accent">
@@ -92,22 +103,10 @@ export default function Challenge({ members }) {
         </div>
       </div>
 
-      {/* Targets */}
-      <div className="grid grid-cols-2 gap-3 mb-4">
-        <div className="bg-mvp-dark rounded-lg p-3 border border-mvp-border">
-          <span className="text-xs text-white/40 uppercase tracking-wider font-display">Deal Target</span>
-          <div className="text-xl font-bold text-mvp-success font-display">{challenge.targets.deals} deals</div>
-        </div>
-        <div className="bg-mvp-dark rounded-lg p-3 border border-mvp-border">
-          <span className="text-xs text-white/40 uppercase tracking-wider font-display">Call Target</span>
-          <div className="text-xl font-bold text-mvp-accent font-display">{challenge.targets.calls} calls</div>
-        </div>
-      </div>
-
-      {/* Participants */}
+      {/* Participants — individual deal targets */}
       <div className="space-y-2.5">
         {participants.map(p => (
-          <div key={p.id} className="bg-mvp-dark rounded-lg p-3 border border-mvp-border">
+          <div key={p.id} className={`bg-mvp-dark rounded-lg p-3 border ${p.qualified ? 'border-mvp-success/50' : 'border-mvp-border'}`}>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <div
@@ -130,21 +129,12 @@ export default function Challenge({ members }) {
                 </div>
               )}
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <div className="flex justify-between text-[10px] text-white/40 mb-1 font-display">
-                  <span>Deals</span>
-                  <span>{p.dealsProgress}/{challenge.targets.deals}</span>
-                </div>
-                <ProgressBar current={p.dealsProgress} target={challenge.targets.deals} color="#00e676" />
+            <div>
+              <div className="flex justify-between text-[10px] text-white/40 mb-1 font-display">
+                <span>Deals</span>
+                <span className="font-semibold">{p.deals}/{p.dealTarget}</span>
               </div>
-              <div>
-                <div className="flex justify-between text-[10px] text-white/40 mb-1 font-display">
-                  <span>Calls</span>
-                  <span>{p.callsProgress}/{challenge.targets.calls}</span>
-                </div>
-                <ProgressBar current={p.callsProgress} target={challenge.targets.calls} color="#59D6D6" />
-              </div>
+              <ProgressBar current={p.deals} target={p.dealTarget} color="#00e676" />
             </div>
           </div>
         ))}

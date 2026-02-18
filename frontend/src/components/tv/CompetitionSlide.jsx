@@ -5,13 +5,23 @@ import Avatar from '../Avatar';
 
 const CHALLENGE = {
   name: 'Lunchclub Sprint',
-  description: 'Most deals + calls this week wins lunch on the company',
+  description: 'Hit your individual deal target to win lunch on the company!',
   endDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
-  targets: { deals: 3, calls: 50 },
+};
+
+// Individual deal targets per team member (by shortName)
+const DEAL_TARGETS = {
+  Marcos: 2,
+  Floris: 3,
+  Mathijs: 3,
+  Burcu: 1,
+  Milan: 1,
+  Viviana: 1,
+  Harry: 1,
 };
 
 function ProgressBar({ current, target, color }) {
-  const pct = Math.min((current / target) * 100, 100);
+  const pct = target > 0 ? Math.min((current / target) * 100, 100) : 0;
   return (
     <div className="w-full h-[1.2vh] bg-mvp-dark rounded-full overflow-hidden">
       <div
@@ -30,15 +40,24 @@ export default function CompetitionSlide({ members }) {
     return () => clearInterval(interval);
   }, []);
 
-  const participants = (members || []).map(m => ({
-    name: m.name,
-    color: m.color,
-    avatar: m.avatar,
-    photo: m.photo,
-    deals: Math.min(m.deals || 0, CHALLENGE.targets.deals),
-    calls: Math.min(m.calls || 0, CHALLENGE.targets.calls),
-    qualified: (m.deals || 0) >= CHALLENGE.targets.deals && (m.calls || 0) >= CHALLENGE.targets.calls,
-  })).sort((a, b) => (b.deals + b.calls / CHALLENGE.targets.calls) - (a.deals + a.calls / CHALLENGE.targets.calls));
+  const participants = (members || []).map(m => {
+    const dealTarget = DEAL_TARGETS[m.name] || 1;
+    const deals = m.deals || 0;
+    return {
+      name: m.name,
+      color: m.color,
+      avatar: m.avatar,
+      photo: m.photo,
+      deals,
+      dealTarget,
+      qualified: deals >= dealTarget,
+    };
+  }).sort((a, b) => {
+    // Sort by completion percentage descending
+    const pctA = a.dealTarget > 0 ? a.deals / a.dealTarget : 0;
+    const pctB = b.dealTarget > 0 ? b.deals / b.dealTarget : 0;
+    return pctB - pctA;
+  });
 
   return (
     <div className="w-full max-w-[90vw]">
@@ -70,46 +89,27 @@ export default function CompetitionSlide({ members }) {
         </div>
       </div>
 
-      {/* Targets */}
-      <div className="grid grid-cols-2 gap-[1vw] mb-[2vh]">
-        <div className="bg-mvp-card rounded-[1vh] p-[1.5vh] border border-mvp-border">
-          <span className="text-[1.3vh] text-white/40 uppercase tracking-wider font-display">Deal Target</span>
-          <div className="text-[3.5vh] font-bold text-mvp-success font-display">{CHALLENGE.targets.deals} deals</div>
-        </div>
-        <div className="bg-mvp-card rounded-[1vh] p-[1.5vh] border border-mvp-border">
-          <span className="text-[1.3vh] text-white/40 uppercase tracking-wider font-display">Call Target</span>
-          <div className="text-[3.5vh] font-bold text-mvp-accent font-display">{CHALLENGE.targets.calls} calls</div>
-        </div>
-      </div>
-
-      {/* Participant progress */}
+      {/* Participant progress — individual deal targets */}
       <div className="grid grid-cols-2 gap-[0.8vw]">
         {participants.map(p => (
-          <div key={p.name} className="bg-mvp-card rounded-[1vh] p-[1.5vh] border border-mvp-border">
+          <div key={p.name} className={`bg-mvp-card rounded-[1vh] p-[1.5vh] border ${p.qualified ? 'border-mvp-success/50' : 'border-mvp-border'}`}>
             <div className="flex items-center justify-between mb-[1vh]">
               <div className="flex items-center gap-[0.5vw]">
                 <Avatar member={p} size="w-[4vh] h-[4vh]" textSize="text-[1.5vh]" />
                 <span className="text-[2vh] font-semibold font-display">{p.name}</span>
               </div>
-              {p.qualified && (
+              {p.qualified ? (
                 <span className="text-[1.3vh] font-semibold text-mvp-success font-display">Qualified</span>
+              ) : (
+                <span className="text-[1.3vh] text-white/30 font-display">In Progress</span>
               )}
             </div>
-            <div className="grid grid-cols-2 gap-[1vw]">
-              <div>
-                <div className="flex justify-between text-[1.2vh] text-white/40 mb-[0.3vh] font-display">
-                  <span>Deals</span>
-                  <span>{p.deals}/{CHALLENGE.targets.deals}</span>
-                </div>
-                <ProgressBar current={p.deals} target={CHALLENGE.targets.deals} color="#00e676" />
+            <div>
+              <div className="flex justify-between text-[1.2vh] text-white/40 mb-[0.3vh] font-display">
+                <span>Deals</span>
+                <span className="font-semibold">{p.deals}/{p.dealTarget}</span>
               </div>
-              <div>
-                <div className="flex justify-between text-[1.2vh] text-white/40 mb-[0.3vh] font-display">
-                  <span>Calls</span>
-                  <span>{p.calls}/{CHALLENGE.targets.calls}</span>
-                </div>
-                <ProgressBar current={p.calls} target={CHALLENGE.targets.calls} color="#59D6D6" />
-              </div>
+              <ProgressBar current={p.deals} target={p.dealTarget} color="#00e676" />
             </div>
           </div>
         ))}

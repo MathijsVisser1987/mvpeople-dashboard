@@ -17,7 +17,7 @@ export default function TeamStats({ stats, loading, targets }) {
     {
       label: 'Total Calls',
       value: stats?.totalCalls || 0,
-      target: targets?.calls || 3000,
+      target: targets?.calls || 2000,
       format: formatNumber,
       icon: Phone,
       color: 'text-mvp-accent',

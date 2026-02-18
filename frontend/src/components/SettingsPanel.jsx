@@ -272,7 +272,7 @@ function PanelOverlay({ config, toggleWidget, setTargets, onClose, members, targ
   const [tab, setTab] = useState('widgets');
   const [localTargets, setLocalTargets] = useState(() => ({
     deals: 30,
-    calls: 3000,
+    calls: 2000,
     talkTime: 5000,
     pipeline: 500000,
     ...(config?.targets || {}),

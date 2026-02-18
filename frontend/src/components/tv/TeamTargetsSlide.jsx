@@ -46,7 +46,7 @@ function CircularProgress({ value, max, color, label, displayValue }) {
 // Monthly targets (configurable)
 const TARGETS = {
   deals: 30,
-  calls: 3000,
+  calls: 2000,
   talkTime: 5000,
 };
 
