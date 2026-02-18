@@ -36,6 +36,7 @@ class EightByEightService {
     this.accessToken = null;
     this.tokenExpiry = null;
     this._loadPromise = null;
+    this._authPromise = null;
   }
 
   async _loadTokens() {
@@ -130,16 +131,38 @@ class EightByEightService {
   async ensureAuthenticated() {
     // Try loading persisted tokens from KV first
     await this._loadTokens();
+    if (this.isAuthenticated()) return;
+    // Serialize concurrent auth attempts — only one runs, others wait
+    if (this._authPromise) return this._authPromise;
+    this._authPromise = this._doAuth();
+    return this._authPromise;
+  }
 
-    if (!this.isAuthenticated()) {
-      // Try auto-auth from env vars (useful for serverless cold starts)
+  async _doAuth() {
+    try {
       const username = process.env.EIGHT_BY_EIGHT_USERNAME;
       const password = process.env.EIGHT_BY_EIGHT_PASSWORD;
-      if (username && password) {
-        await this.authenticate(username, password);
-      } else {
+      if (!username || !password) {
         throw new Error('EIGHT_BY_EIGHT_NOT_AUTHENTICATED');
       }
+      // Retry up to 2 times with exponential backoff
+      let lastErr;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          await this.authenticate(username, password);
+          return; // success
+        } catch (err) {
+          lastErr = err;
+          if (attempt < 2) {
+            const delay = 1000 * 2 ** attempt; // 1s, 2s
+            console.log(`[8x8] Auth attempt ${attempt + 1} failed, retrying in ${delay}ms...`);
+            await new Promise((r) => setTimeout(r, delay));
+          }
+        }
+      }
+      throw lastErr;
+    } finally {
+      this._authPromise = null;
     }
   }
 
@@ -174,15 +197,13 @@ class EightByEightService {
 
     let res = await doFetch();
 
-    // On 401, re-authenticate and retry once
+    // On 401, invalidate token, re-authenticate through the guard, and retry once
     if (res.status === 401) {
       console.log('[8x8] Got 401 on extsum, re-authenticating...');
-      const username = process.env.EIGHT_BY_EIGHT_USERNAME;
-      const password = process.env.EIGHT_BY_EIGHT_PASSWORD;
-      if (username && password) {
-        await this.authenticate(username, password);
-        res = await doFetch();
-      }
+      this.accessToken = null;
+      this.tokenExpiry = null;
+      await this.ensureAuthenticated();
+      res = await doFetch();
     }
 
     if (!res.ok) {
