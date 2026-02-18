@@ -37,7 +37,7 @@ function Dashboard() {
         lastUpdated={lastUpdated}
         onRefresh={refresh}
         settingsPanel={
-          <SettingsPanel config={config} toggleWidget={toggleWidget} setTargets={setTargets} />
+          <SettingsPanel config={config} toggleWidget={toggleWidget} setTargets={setTargets} members={leaderboard} targetProfiles={data?.targetProfiles} />
         }
       />
 

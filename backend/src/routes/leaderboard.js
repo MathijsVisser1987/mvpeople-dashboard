@@ -51,6 +51,10 @@ router.post('/refresh', async (req, res) => {
       const redis = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
       await redis.del('vincere-deals-cache');
       await redis.del('vincere-deals-scan');
+      // Also clear month-specific scan key
+      const now = new Date();
+      const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      await redis.del(`vincere-deals-scan-${monthKey}`);
       await redis.del('celebrations');
       await redis.del('vincere-deals-snapshot');
       await redis.del('vincere-activities-cache');

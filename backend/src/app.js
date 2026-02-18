@@ -7,6 +7,7 @@ import celebrationRoutes from './routes/celebrations.js';
 import historyRoutes from './routes/history.js';
 import leagueRoutes from './routes/leagues.js';
 import missionRoutes from './routes/missions.js';
+import settingsRoutes from './routes/settings.js';
 import vincereService from './services/vincere.js';
 
 dotenv.config();
@@ -38,6 +39,7 @@ app.use('/api/celebrations', celebrationRoutes);
 app.use('/api/history', historyRoutes);
 app.use('/api/leagues', leagueRoutes);
 app.use('/api/missions', missionRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -140,7 +142,9 @@ app.get('/api/debug/placements', async (req, res) => {
       if (process.env.KV_REST_API_URL) {
         const { Redis } = await import('@upstash/redis');
         const redis = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
-        const raw = await redis.get('vincere-deals-scan');
+        const now2 = new Date();
+        const monthKey = `${now2.getFullYear()}-${String(now2.getMonth() + 1).padStart(2, '0')}`;
+        const raw = await redis.get(`vincere-deals-scan-${monthKey}`);
         if (raw) {
           const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
           scanState = {

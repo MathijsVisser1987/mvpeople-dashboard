@@ -7,6 +7,25 @@ import { teamMembers, calculatePoints, getMultiplier, computeBadges } from '../c
 import { ACTIVITY_POINTS_MAP } from '../config/goals.js';
 import { calculateKPIActuals, calculateKPIStatus, TARGET_PROFILES } from '../config/kpiTargets.js';
 
+const KV_TARGETS_KEY = 'kpi-target-overrides';
+
+// Load custom target overrides from Redis
+async function loadTargetOverrides() {
+  try {
+    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+      const { Redis } = await import('@upstash/redis');
+      const redis = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
+      const data = await redis.get(KV_TARGETS_KEY);
+      if (data) {
+        return typeof data === 'string' ? JSON.parse(data) : data;
+      }
+    }
+  } catch (err) {
+    console.log('[Aggregator] Failed to load target overrides:', err.message);
+  }
+  return {};
+}
+
 // Cache to avoid hammering APIs
 let cache = {
   leaderboard: null,
@@ -143,12 +162,13 @@ export async function buildLeaderboard() {
     return cache.leaderboard;
   }
 
-  // Fetch 8x8 calls + Vincere activities concurrently (both are lightweight)
+  // Fetch 8x8 calls + Vincere activities + target overrides concurrently
   // Then run the heavy deal scan separately to avoid rate-limiting activities
-  const [callStats, dailyStats, activityStats] = await Promise.all([
+  const [callStats, dailyStats, activityStats, targetOverrides] = await Promise.all([
     getCallStats(),
     getDailyCallStats(3),
     getActivityStats(),
+    loadTargetOverrides(),
   ]);
 
   // Deal scan is heavy (800+ API calls) — run after activities to avoid 429s
@@ -192,7 +212,8 @@ export async function buildLeaderboard() {
 
     // KPI Target/Actual/Variance calculations
     const kpiActuals = calculateKPIActuals(activities.byActivityName || {}, dealsCount);
-    const kpiStatus = calculateKPIStatus(member.targetProfile, kpiActuals);
+    const memberOverrides = targetOverrides[String(member.vincereId)] || null;
+    const kpiStatus = calculateKPIStatus(member.targetProfile, kpiActuals, memberOverrides);
 
     return {
       id: index + 1,

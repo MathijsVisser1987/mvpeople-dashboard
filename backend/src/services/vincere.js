@@ -311,7 +311,12 @@ class VincereService {
   // Scan a chunk of jobs for placements, accumulating results in KV
   async getAllTeamDeals(teamMembers) {
     const store = await getRedis();
-    const KV_SCAN_KEY = 'vincere-deals-scan';
+
+    // Month-specific scan key so it auto-resets each month
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const KV_SCAN_KEY = `vincere-deals-scan-${monthKey}`;
 
     // Load existing scan state from KV
     let scanState = null;
@@ -397,6 +402,11 @@ class VincereService {
 
             if (result.status === 'fulfilled' && Array.isArray(result.value)) {
               for (const placement of result.value) {
+                // Only count placements from the current month
+                if (!placement.placed_date) continue;
+                const placedDate = new Date(placement.placed_date);
+                if (placedDate < monthStart) continue;
+
                 // Use application_id as unique deal key: each APP ID = max 1 deal.
                 // Only count renewal_number 0, 1, null/undefined (new placements).
                 // renewal_number 2, 3, etc. are contract extensions.

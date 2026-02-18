@@ -150,9 +150,15 @@ export function calculateKPIActuals(activityByName, dealCount) {
 }
 
 // Calculate T/A/V for a member given their profile and actuals
-export function calculateKPIStatus(profileId, actuals) {
-  const profile = TARGET_PROFILES[profileId];
+// targetOverrides: optional object { profile?: string, overrides?: { kpiKey: number } }
+export function calculateKPIStatus(profileId, actuals, targetOverrides) {
+  // Allow profile override from settings
+  const effectiveProfileId = targetOverrides?.profile || profileId;
+  const profile = TARGET_PROFILES[effectiveProfileId];
   if (!profile) return [];
+
+  // Merge profile defaults with any individual overrides
+  const mergedTargets = { ...profile.targets, ...(targetOverrides?.overrides || {}) };
 
   // Pro-rate targets based on day of month
   const now = new Date();
@@ -161,7 +167,7 @@ export function calculateKPIStatus(profileId, actuals) {
   const monthProgress = dayOfMonth / daysInMonth;
 
   const kpis = [];
-  for (const [kpiKey, target] of Object.entries(profile.targets)) {
+  for (const [kpiKey, target] of Object.entries(mergedTargets)) {
     const def = KPI_DEFINITIONS[kpiKey];
     if (!def) continue;
 
