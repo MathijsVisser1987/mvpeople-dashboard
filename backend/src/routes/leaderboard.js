@@ -26,6 +26,18 @@ router.get('/badges', (req, res) => {
   res.json(badges);
 });
 
+// GET /api/leaderboard/ytd - Year-to-date MVP standings
+router.get('/ytd', async (req, res) => {
+  try {
+    const ytdService = (await import('../services/ytdService.js')).default;
+    const year = req.query.year ? parseInt(req.query.year) : undefined;
+    const standings = await ytdService.getStandings(year);
+    res.json({ standings });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/leaderboard/activities - Activity breakdown for custom date range
 router.get('/activities', async (req, res) => {
   try {

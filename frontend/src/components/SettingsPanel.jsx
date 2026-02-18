@@ -9,6 +9,7 @@ const WIDGET_LABELS = {
   kpiTargets: { name: 'KPI Targets', icon: '🎯' },
   leagues: { name: 'Leagues', icon: '🏅' },
   missions: { name: 'Missions', icon: '🎯' },
+  mvpOfYear: { name: 'MVP of the Year', icon: '🏆' },
   challenge: { name: 'Challenge', icon: '⚡' },
   recentWins: { name: 'Recent Wins', icon: '🎉' },
   trendCharts: { name: 'Trend Charts', icon: '📈' },

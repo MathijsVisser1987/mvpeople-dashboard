@@ -1,5 +1,5 @@
 import vincereService from './vincere.js';
-import { teamMembers } from '../config/team.js';
+import { teamMembers, SALESDAG_MULTIPLIER, SALESDAG_ACTIVITY_NAMES } from '../config/team.js';
 import {
   ACTIVITY_CATEGORIES,
   ACTIVITY_CLASSIFICATION,
@@ -80,6 +80,16 @@ class ActivityService {
     CV_SENT_TO_CLIENT: 'CV Sent',
   };
 
+  // Check if a date string falls on a Thursday (Europe/Amsterdam timezone)
+  _isThursday(dateStr) {
+    if (!dateStr) return false;
+    try {
+      const d = new Date(dateStr);
+      const amsterdam = new Date(d.toLocaleString('en-US', { timeZone: 'Europe/Amsterdam' }));
+      return amsterdam.getDay() === 4;
+    } catch { return false; }
+  }
+
   // Aggregate activities for a single user
   _aggregateUserActivities(activities) {
     const result = {
@@ -89,6 +99,7 @@ class ActivityService {
       byCategory: {},
       byActivityName: {},  // counts by activity_name (for KPI tracking)
       notableActivities: [], // recent interviews, meetings, placements
+      salesdagToday: { salesCalls: 0, doubleXP: 0 },
     };
 
     // Initialize categories
@@ -113,6 +124,24 @@ class ActivityService {
         points = ACTIVITY_NAME_POINTS[activity.activity_name];
       } else if (typeKey && ACTIVITY_POINTS_MAP[typeKey] !== undefined) {
         points = ACTIVITY_POINTS_MAP[typeKey];
+      }
+
+      // Salesdag: double points on sales calls made on Thursdays
+      const isSalesCall = activity.activity_name && SALESDAG_ACTIVITY_NAMES.has(activity.activity_name);
+      const activityDate = activity.created_date || activity.insert_date || null;
+      if (isSalesCall && this._isThursday(activityDate)) {
+        const bonus = points * (SALESDAG_MULTIPLIER - 1);
+        points *= SALESDAG_MULTIPLIER;
+
+        // Track today's salesdag stats
+        const now = new Date();
+        const todayAmsterdam = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Amsterdam' }));
+        const actDate = new Date(new Date(activityDate).toLocaleString('en-US', { timeZone: 'Europe/Amsterdam' }));
+        if (todayAmsterdam.getDay() === 4 &&
+            actDate.toDateString() === todayAmsterdam.toDateString()) {
+          result.salesdagToday.salesCalls++;
+          result.salesdagToday.doubleXP += bonus;
+        }
       }
 
       result.totalActivities++;

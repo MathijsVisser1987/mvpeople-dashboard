@@ -8,6 +8,7 @@ const DEFAULT_CONFIG = {
     leaderboard: { visible: true, order: 1 },
     leagues: { visible: true, order: 2 },
     missions: { visible: true, order: 3 },
+    mvpOfYear: { visible: true, order: 3.5 },
     challenge: { visible: true, order: 4 },
     recentWins: { visible: true, order: 5 },
     trendCharts: { visible: true, order: 6 },

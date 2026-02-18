@@ -3,7 +3,7 @@ import eightByEightService from './eightByEight.js';
 import celebrationService from './celebrationService.js';
 import historyService from './historyService.js';
 import activityService from './activityService.js';
-import { teamMembers, calculatePoints, getMultiplier, computeBadges } from '../config/team.js';
+import { teamMembers, calculatePoints, getMultiplier, computeBadges, isSalesdag } from '../config/team.js';
 import { ACTIVITY_POINTS_MAP } from '../config/goals.js';
 import { calculateKPIActuals, calculateKPIStatus, TARGET_PROFILES } from '../config/kpiTargets.js';
 
@@ -282,6 +282,7 @@ export async function buildLeaderboard() {
         bonus: 500,
         qualified: (activities.byActivityName?.PHONE_OUTBOUND_NOT_CONNECTED_WITH_CANDIDATE || 0) >= 60,
       } : null,
+      salesdagToday: activities.salesdagToday || { salesCalls: 0, doubleXP: 0 },
     };
   });
 
@@ -312,6 +313,7 @@ export async function buildLeaderboard() {
 
   const result = {
     leaderboard,
+    isSalesdag: isSalesdag(),
     recentActivityWins: recentActivityWins.slice(0, 15),
     teamStats: {
       totalDeals: leaderboard.reduce((s, m) => s + m.deals, 0),
@@ -334,6 +336,9 @@ export async function buildLeaderboard() {
 
   // Auto-snapshot: save once per day (non-blocking)
   historyService.takeSnapshot(result).catch(() => {});
+
+  // Update YTD standings (non-blocking)
+  import('./ytdService.js').then(m => m.default.updateCurrentMonth(result)).catch(() => {});
 
   return result;
 }

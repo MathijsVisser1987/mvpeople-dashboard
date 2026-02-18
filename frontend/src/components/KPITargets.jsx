@@ -77,6 +77,39 @@ function MemberKPIs({ member }) {
           <KPIBar key={kpi.key} kpi={kpi} />
         ))}
       </div>
+
+      {/* Headhunt Challenge progress bar for starters */}
+      {member.headhuntChallenge && (
+        <div className="mt-3 pt-3 border-t border-white/10">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs font-semibold text-amber-400 font-display">
+              Headhunt Bonus
+            </span>
+            <span className="text-xs font-display">
+              <span className="text-white/80">{member.headhuntChallenge.current}/{member.headhuntChallenge.target}</span>
+              <span className="text-amber-400 ml-1">&mdash; &euro;{member.headhuntChallenge.bonus}</span>
+            </span>
+          </div>
+          <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{
+                width: `${Math.min((member.headhuntChallenge.current / member.headhuntChallenge.target) * 100, 100)}%`,
+                background: member.headhuntChallenge.qualified
+                  ? 'linear-gradient(90deg, #fbbf24, #f59e0b)'
+                  : 'linear-gradient(90deg, #d97706, #b45309)',
+              }}
+            />
+          </div>
+          {member.headhuntChallenge.qualified && (
+            <div className="mt-1.5 text-center">
+              <span className="text-[10px] font-bold text-amber-400 bg-amber-400/15 px-2 py-0.5 rounded-full font-display uppercase tracking-wider">
+                Qualified!
+              </span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

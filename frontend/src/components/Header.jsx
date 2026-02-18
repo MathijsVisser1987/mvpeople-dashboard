@@ -1,7 +1,7 @@
 import { RefreshCw, Zap, Tv, BarChart3 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-export default function Header({ usingMock, apiStatus, lastUpdated, onRefresh, settingsPanel }) {
+export default function Header({ usingMock, apiStatus, lastUpdated, onRefresh, settingsPanel, isSalesdag }) {
   const now = new Date();
   const dateStr = now.toLocaleDateString('en-GB', {
     weekday: 'long',
@@ -15,6 +15,15 @@ export default function Header({ usingMock, apiStatus, lastUpdated, onRefresh, s
 
   return (
     <header className="border-b border-mvp-border bg-mvp-card/80 backdrop-blur-sm sticky top-0 z-50">
+      {isSalesdag && (
+        <div className="bg-gradient-to-r from-orange-600/20 via-orange-500/15 to-orange-600/20 border-b border-orange-500/30">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-1.5 text-center">
+            <span className="text-xs font-bold font-display text-orange-400">
+              {'\uD83D\uDD25'} SALESDAG &mdash; Double XP on Sales Calls!
+            </span>
+          </div>
+        </div>
+      )}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">

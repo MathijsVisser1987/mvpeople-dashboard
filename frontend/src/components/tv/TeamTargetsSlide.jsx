@@ -98,6 +98,28 @@ export default function TeamTargetsSlide({ stats, members }) {
             <div className="text-[1.1vh] text-white/30 font-display uppercase mb-[0.5vh]">deals</div>
             <div className="text-[2.5vh] font-bold text-mvp-accent font-display leading-none">{m.calls}</div>
             <div className="text-[1.1vh] text-white/30 font-display uppercase">calls</div>
+            {m.headhuntChallenge && (
+              <div className="w-full mt-[0.8vh] pt-[0.6vh] border-t border-white/10">
+                <div className="flex justify-between text-[0.9vh] text-amber-400/80 font-display mb-[0.3vh]">
+                  <span>Headhunt</span>
+                  <span>{m.headhuntChallenge.current}/{m.headhuntChallenge.target}</span>
+                </div>
+                <div className="h-[0.6vh] bg-white/10 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${Math.min((m.headhuntChallenge.current / m.headhuntChallenge.target) * 100, 100)}%`,
+                      background: m.headhuntChallenge.qualified
+                        ? 'linear-gradient(90deg, #fbbf24, #f59e0b)'
+                        : 'linear-gradient(90deg, #d97706, #b45309)',
+                    }}
+                  />
+                </div>
+                {m.headhuntChallenge.qualified && (
+                  <div className="text-[0.8vh] text-amber-400 font-bold font-display mt-[0.3vh] uppercase">Qualified!</div>
+                )}
+              </div>
+            )}
           </div>
         ))}
       </div>

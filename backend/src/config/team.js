@@ -10,7 +10,7 @@ export const teamMembers = [
     vincereId: 29060,
     email: 'burcu@mvpeoplegroup.com',
     extension: '1007',
-    targetProfile: 'recruiter360',
+    targetProfile: 'starter',
   },
   {
     name: 'Floris Akkerhuis',
@@ -82,9 +82,23 @@ export const teamMembers = [
     vincereId: 29027,
     email: 'viviana@mvpeoplegroup.com',
     extension: '1008',
-    targetProfile: 'recruiter360',
+    targetProfile: 'starter',
   },
 ];
+
+// Salesdag: double points on Sales Calls every Thursday
+export const SALESDAG_MULTIPLIER = 2;
+
+export const SALESDAG_ACTIVITY_NAMES = new Set([
+  'PHONE_OUTBOUND_CONNECTED_WITH_CONTACT',
+  'PHONE_OUTBOUND_LEFT_MESSAGE_CONTACT',
+  'PHONE_OUTBOUND_NOT_CONNECTED_WITH_CONTACT',
+]);
+
+export function isSalesdag() {
+  const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Amsterdam' }));
+  return now.getDay() === 4; // Thursday
+}
 
 // Points system
 export const POINTS_PER_DEAL = 500;

@@ -82,8 +82,10 @@ app.get('/api/cron/snapshot', async (req, res) => {
   try {
     const { buildLeaderboard } = await import('./services/dataAggregator.js');
     const historyService = (await import('./services/historyService.js')).default;
+    const ytdService = (await import('./services/ytdService.js')).default;
     const data = await buildLeaderboard();
     const snapshot = await historyService.takeSnapshot(data);
+    await ytdService.updateCurrentMonth(data).catch(err => console.log('[Cron] YTD update error:', err.message));
     res.json({ success: !!snapshot, date: snapshot?.date });
   } catch (err) {
     res.status(500).json({ error: err.message });

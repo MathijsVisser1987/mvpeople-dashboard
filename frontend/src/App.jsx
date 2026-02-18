@@ -15,12 +15,15 @@ import MissionsWidget from './components/MissionsWidget';
 import TrendChartsWidget from './components/TrendChartsWidget';
 import ActivityBreakdown from './components/ActivityBreakdown';
 import KPITargets from './components/KPITargets';
+import MVPOfYear from './components/MVPOfYear';
 import SettingsPanel from './components/SettingsPanel';
 import TVSlideshow from './pages/TVSlideshow';
 import Reports from './pages/Reports';
+import { useYTD } from './hooks/useYTD';
 
 function Dashboard() {
   const { data, loading, usingMock, refresh } = useLeaderboard();
+  const { standings: ytdStandings } = useYTD();
   const { config, toggleWidget, setTargets, isVisible } = useWidgetConfig();
 
   const leaderboard = data?.leaderboard || [];
@@ -36,6 +39,7 @@ function Dashboard() {
         apiStatus={apiStatus}
         lastUpdated={lastUpdated}
         onRefresh={refresh}
+        isSalesdag={data?.isSalesdag}
         settingsPanel={
           <SettingsPanel config={config} toggleWidget={toggleWidget} setTargets={setTargets} members={leaderboard} targetProfiles={data?.targetProfiles} />
         }
@@ -65,6 +69,7 @@ function Dashboard() {
 
           {/* Right column - 1/3 */}
           <div className="space-y-6">
+            {isVisible('mvpOfYear') && <MVPOfYear standings={ytdStandings} />}
             {isVisible('missions') && <MissionsWidget />}
             {isVisible('challenge') && <Challenge members={leaderboard} />}
             {isVisible('recentWins') && <RecentWins celebrations={celebrations} />}

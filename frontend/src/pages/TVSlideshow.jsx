@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useLeaderboard } from '../hooks/useLeaderboard';
 import { useCelebrations } from '../hooks/useCelebrations';
+import { useYTD } from '../hooks/useYTD';
 import TVHeader from '../components/tv/TVHeader';
 import LeaderboardSlide from '../components/tv/LeaderboardSlide';
 import TopPerformerSlide from '../components/tv/TopPerformerSlide';
@@ -9,6 +10,8 @@ import CompetitionSlide from '../components/tv/CompetitionSlide';
 import RecentWinsSlide from '../components/tv/RecentWinsSlide';
 import TeamTargetsSlide from '../components/tv/TeamTargetsSlide';
 import IndividualSlide from '../components/tv/IndividualSlide';
+import MVPOfYearSlide from '../components/tv/MVPOfYearSlide';
+import SalesdagSlide from '../components/tv/SalesdagSlide';
 import CelebrationOverlay from '../components/tv/CelebrationOverlay';
 
 const SLIDE_DURATION = 12000; // 12 seconds per slide
@@ -16,13 +19,18 @@ const SLIDE_DURATION = 12000; // 12 seconds per slide
 export default function TVSlideshow() {
   const { data } = useLeaderboard();
   const { celebrations, unseen, markSeen } = useCelebrations();
+  const { standings: ytdStandings } = useYTD();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [showCelebration, setShowCelebration] = useState(null);
 
   const leaderboard = data?.leaderboard || [];
   const teamStats = data?.teamStats || {};
 
-  const slides = ['leaderboard', 'top-performer', 'competition', 'recent-wins', 'team-targets'];
+  const slides = useMemo(() => {
+    const base = ['leaderboard', 'top-performer', 'competition', 'recent-wins', 'team-targets', 'mvp-of-year'];
+    if (data?.isSalesdag) base.push('salesdag');
+    return base;
+  }, [data?.isSalesdag]);
 
   // Add tv-mode class to body
   useEffect(() => {
@@ -63,6 +71,10 @@ export default function TVSlideshow() {
         return <RecentWinsSlide celebrations={celebrations} activityWins={data?.recentActivityWins} />;
       case 'team-targets':
         return <TeamTargetsSlide stats={teamStats} members={leaderboard} />;
+      case 'mvp-of-year':
+        return <MVPOfYearSlide standings={ytdStandings} />;
+      case 'salesdag':
+        return <SalesdagSlide members={leaderboard} />;
       default:
         if (slideName?.startsWith('individual-')) {
           const index = parseInt(slideName.split('-')[1], 10);
