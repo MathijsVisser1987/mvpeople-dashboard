@@ -1,4 +1,4 @@
-import { Bell, Briefcase, Phone, Award, Flame } from 'lucide-react';
+import { Bell, Briefcase, Phone, Award } from 'lucide-react';
 
 // Generate activity feed from leaderboard data
 function generateActivities(members) {
@@ -9,7 +9,6 @@ function generateActivities(members) {
     deal: { icon: Briefcase, color: 'text-mvp-success' },
     badge: { icon: Award, color: 'text-mvp-accent' },
     calls: { icon: Phone, color: 'text-mvp-accent' },
-    streak: { icon: Flame, color: 'text-mvp-fire' },
   };
 
   // Create activities based on real stats
@@ -21,15 +20,6 @@ function generateActivities(members) {
         message: `has ${m.deals} deal${m.deals !== 1 ? 's' : ''} closed this month`,
         sort: m.deals * 10,
         ...iconMap.deal,
-      });
-    }
-    if (m.streak >= 5) {
-      activities.push({
-        type: 'streak',
-        name: m.name,
-        message: `is on a ${m.streak}-day streak! (2x multiplier)`,
-        sort: m.streak * 5,
-        ...iconMap.streak,
       });
     }
     if (m.calls >= 50) {

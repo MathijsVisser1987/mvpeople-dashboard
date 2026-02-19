@@ -12,6 +12,7 @@ import TeamTargetsSlide from '../components/tv/TeamTargetsSlide';
 import IndividualSlide from '../components/tv/IndividualSlide';
 import MVPOfYearSlide from '../components/tv/MVPOfYearSlide';
 import SalesdagSlide from '../components/tv/SalesdagSlide';
+import CallStatsTodaySlide from '../components/tv/CallStatsTodaySlide';
 import CelebrationOverlay from '../components/tv/CelebrationOverlay';
 
 const SLIDE_DURATION = 12000; // 12 seconds per slide
@@ -27,7 +28,7 @@ export default function TVSlideshow() {
   const teamStats = data?.teamStats || {};
 
   const slides = useMemo(() => {
-    const base = ['leaderboard', 'top-performer', 'competition', 'recent-wins', 'team-targets', 'mvp-of-year'];
+    const base = ['leaderboard', 'top-performer', 'call-stats-today', 'competition', 'recent-wins', 'team-targets', 'mvp-of-year'];
     if (data?.isSalesdag) base.push('salesdag');
     return base;
   }, [data?.isSalesdag]);
@@ -65,6 +66,8 @@ export default function TVSlideshow() {
         return <LeaderboardSlide members={leaderboard} />;
       case 'top-performer':
         return <TopPerformerSlide member={leaderboard[0]} />;
+      case 'call-stats-today':
+        return <CallStatsTodaySlide members={leaderboard} />;
       case 'competition':
         return <CompetitionSlide members={leaderboard} />;
       case 'recent-wins':

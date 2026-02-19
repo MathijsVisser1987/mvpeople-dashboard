@@ -45,7 +45,6 @@ class HistoryService {
         talkTimeMinutes: m.talkTimeMinutes,
         pipelineValue: m.pipelineValue,
         points: m.points,
-        streak: m.streak,
         badges: m.badges,
       })),
       teamStats: leaderboardData.teamStats || {},

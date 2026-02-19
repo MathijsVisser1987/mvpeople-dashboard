@@ -1,4 +1,4 @@
-import { Trophy, Flame, TrendingUp, Phone, Briefcase, Clock, Loader2 } from 'lucide-react';
+import { Trophy, TrendingUp, Phone, Briefcase, Clock, Loader2 } from 'lucide-react';
 import { badgeDefinitions } from '../data/mockData';
 import { formatCurrency, formatNumber, formatTalkTime } from '../utils/formatters';
 import Avatar from './Avatar';
@@ -32,23 +32,6 @@ function RankBadge({ rank }) {
   );
 }
 
-function StreakIndicator({ streak }) {
-  if (!streak || streak < 3) return null;
-  return (
-    <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold font-display ${
-      streak >= 5
-        ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-        : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
-    }`}>
-      <Flame size={12} />
-      <span>{streak}d</span>
-      <span className="text-[10px] opacity-70">
-        {streak >= 5 ? '2x' : '1.5x'}
-      </span>
-    </div>
-  );
-}
-
 function MemberRow({ member, rank }) {
   const isTop3 = rank <= 3;
   const borderClass = rank === 1
@@ -76,8 +59,7 @@ function MemberRow({ member, rank }) {
         {/* Name & Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="font-bold text-white font-display">{member.name}</h3>
-            <StreakIndicator streak={member.streak} />
+            <h3 className="font-bold text-white truncate font-display">{member.name}</h3>
           </div>
           <p className="text-xs text-white/40 font-body">{member.role}</p>
           {/* Badges row */}

@@ -88,15 +88,6 @@ const MISSION_DEFINITIONS = [
     xp: 750,
     check: (m) => ({ current: Math.min(m.talkTimeMinutes, 1000), target: 1000 }),
   },
-  {
-    id: 'monthly-streak-5',
-    name: 'Consistency King',
-    description: 'Maintain a 5+ day activity streak',
-    icon: '👑',
-    category: 'monthly',
-    xp: 400,
-    check: (m) => ({ current: Math.min(m.streak, 5), target: 5 }),
-  },
 ];
 
 class MissionService {

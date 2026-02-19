@@ -3,7 +3,7 @@ import eightByEightService from './eightByEight.js';
 import celebrationService from './celebrationService.js';
 import historyService from './historyService.js';
 import activityService from './activityService.js';
-import { teamMembers, calculatePoints, getMultiplier, computeBadges, isSalesdag } from '../config/team.js';
+import { teamMembers, calculatePoints, computeBadges, isSalesdag, XP_RULES } from '../config/team.js';
 import { ACTIVITY_POINTS_MAP } from '../config/goals.js';
 import { calculateKPIActuals, calculateKPIStatus, TARGET_PROFILES } from '../config/kpiTargets.js';
 
@@ -55,36 +55,25 @@ async function getCallStats() {
   return stats;
 }
 
-// Get daily call stats for streak calculation (parallelized, reduced to 3 days)
-async function getDailyCallStats(daysBack = 3) {
-  const dailyStats = {};
+// Get today's call stats from 8x8
+async function getTodayCallStats() {
+  const stats = {};
 
   try {
-    const now = new Date();
-    const fetches = [];
+    const rawData = await eightByEightService.getTodayStats();
+    const parsed = eightByEightService.parseExtensionStats(rawData);
 
-    for (let i = 0; i < daysBack; i++) {
-      const date = new Date(now);
-      date.setDate(date.getDate() - i);
-      const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-      const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59);
-      const dateKey = startOfDay.toISOString().split('T')[0];
-
-      fetches.push(
-        eightByEightService.getExtensionSummary(startOfDay, endOfDay)
-          .then(rawData => {
-            dailyStats[dateKey] = eightByEightService.parseExtensionStats(rawData);
-          })
-          .catch(() => {}) // Silently skip failed days
-      );
+    for (const member of teamMembers) {
+      const extStats = parsed[member.extension];
+      if (extStats) {
+        stats[member.extension] = extStats;
+      }
     }
-
-    await Promise.all(fetches);
   } catch (err) {
-    console.log('[Aggregator] Daily stats not available:', err.message);
+    console.log('[Aggregator] Today 8x8 stats not available:', err.message);
   }
 
-  return dailyStats;
+  return stats;
 }
 
 // Get placement/deal stats from Vincere
@@ -150,35 +139,6 @@ async function getActivityStats() {
   }
 }
 
-// Calculate streak from daily stats
-function calculateStreak(extension, dailyStats) {
-  const dates = Object.keys(dailyStats).sort().reverse();
-  let streak = 0;
-
-  for (const date of dates) {
-    const dayData = dailyStats[date]?.[extension];
-    if (dayData && (dayData.callsMade > 0 || dayData.totalCalls > 0)) {
-      streak++;
-    } else {
-      break;
-    }
-  }
-
-  return streak;
-}
-
-// Find max daily calls for badge calculation
-function getMaxDailyCalls(extension, dailyStats) {
-  let max = 0;
-  for (const date of Object.keys(dailyStats)) {
-    const dayData = dailyStats[date]?.[extension];
-    if (dayData) {
-      max = Math.max(max, dayData.callsMade || 0);
-    }
-  }
-  return max;
-}
-
 // Build the full leaderboard
 export async function buildLeaderboard() {
   // Check cache
@@ -186,11 +146,10 @@ export async function buildLeaderboard() {
     return cache.leaderboard;
   }
 
-  // Fetch 8x8 calls + Vincere activities + target overrides concurrently
-  // Then run the heavy deal scan separately to avoid rate-limiting activities
-  const [callStats, dailyStats, activityStats, targetOverrides] = await Promise.all([
+  // Fetch 8x8 calls (month + today) + Vincere activities + target overrides concurrently
+  const [callStats, todayCallStats, activityStats, targetOverrides] = await Promise.all([
     getCallStats(),
-    getDailyCallStats(3),
+    getTodayCallStats(),
     getActivityStats(),
     loadTargetOverrides(),
   ]);
@@ -209,13 +168,14 @@ export async function buildLeaderboard() {
 
   const leaderboard = teamMembers.map((member, index) => {
     const calls = callStats[member.extension] || {};
+    const todayCalls = todayCallStats[member.extension] || {};
     const deals = dealStats[member.vincereId] || {};
     const activities = activityStats[member.vincereId] || {};
-    const streak = calculateStreak(member.extension, dailyStats);
-    const maxDailyCalls = getMaxDailyCalls(member.extension, dailyStats);
 
     const callsMade = calls.callsMade || calls.externalCallsMade || 0;
     const talkTimeMinutes = calls.totalTalkTimeMinutes || 0;
+    const callsToday = todayCalls.callsMade || todayCalls.externalCallsMade || 0;
+    const talkTimeToday = todayCalls.totalTalkTimeMinutes || 0;
 
     // Deal counting: use MAX of placement scan and activity-based count
     // Activity-based is fast & reliable; scan is slow but has renewal filtering
@@ -234,13 +194,11 @@ export async function buildLeaderboard() {
     const dealCategoryPoints = activities.byCategory?.DEALS_REVENUE?.points || 0;
     const activityPointsNet = Math.max(0, (activities.activityPoints || 0) - dealCategoryPoints);
 
-    const points = calculatePoints(dealsCount, callsMade, talkTimeMinutes, streak, activityPointsNet);
-    const multiplier = getMultiplier(streak);
+    const points = calculatePoints(dealsCount, callsMade, talkTimeMinutes, activityPointsNet);
 
     const badgeStats = {
       deals: dealsCount,
-      maxDailyCalls,
-      streak,
+      maxDailyCalls: callsToday,
       pipelineValue,
     };
 
@@ -263,9 +221,9 @@ export async function buildLeaderboard() {
       deals: dealsCount,
       calls: callsMade,
       talkTimeMinutes,
+      callsToday,
+      talkTimeToday,
       pipelineValue,
-      streak,
-      multiplier,
       points,
       badges: computeBadges(badgeStats),
       hasCallData: !!callStats[member.extension],
@@ -314,6 +272,7 @@ export async function buildLeaderboard() {
   const result = {
     leaderboard,
     isSalesdag: isSalesdag(),
+    xpRules: XP_RULES,
     recentActivityWins: recentActivityWins.slice(0, 15),
     teamStats: {
       totalDeals: leaderboard.reduce((s, m) => s + m.deals, 0),
@@ -321,6 +280,8 @@ export async function buildLeaderboard() {
       totalPipeline: leaderboard.reduce((s, m) => s + m.pipelineValue, 0),
       totalTalkTime: leaderboard.reduce((s, m) => s + m.talkTimeMinutes, 0),
       totalActivities: leaderboard.reduce((s, m) => s + m.totalActivities, 0),
+      totalCallsToday: leaderboard.reduce((s, m) => s + m.callsToday, 0),
+      totalTalkTimeToday: leaderboard.reduce((s, m) => s + m.talkTimeToday, 0),
     },
     celebrations,
     targetProfiles: TARGET_PROFILES,

@@ -100,22 +100,33 @@ export function isSalesdag() {
   return now.getDay() === 4; // Thursday
 }
 
-// Points system
+// Points system — single source of truth for XP values
 export const POINTS_PER_DEAL = 500;
 export const POINTS_PER_CALL = 0.5;
 export const POINTS_PER_MINUTE_TALK = 0.25;
 
-export function calculatePoints(deals, calls, talkTimeMinutes, streakDays, activityPoints = 0) {
-  const base = (deals * POINTS_PER_DEAL) + (calls * POINTS_PER_CALL) + (talkTimeMinutes * POINTS_PER_MINUTE_TALK) + activityPoints;
-  if (streakDays >= 5) return Math.round(base * 2);
-  if (streakDays >= 3) return Math.round(base * 1.5);
-  return Math.round(base);
-}
+// XP display rules (used by frontend PointsBreakdown via API)
+export const XP_RULES = [
+  { label: 'Deal Closed', points: 500 },
+  { label: '1st Interview Arranged', points: 40 },
+  { label: 'Job Order Received', points: 30 },
+  { label: 'CV Sent to Job', points: 20 },
+  { label: 'CV Spec Sent', points: 10 },
+  { label: 'Client Meeting', points: 10 },
+  { label: 'Sales Call', points: 5, salesdagPoints: 10 },
+  { label: 'Job Lead Added', points: 5 },
+  { label: 'New Candidate Added', points: 1 },
+  { label: 'Call Made (8x8)', points: 0.5 },
+  { label: 'Talk Time (per min)', points: 0.25 },
+];
 
-export function getMultiplier(streakDays) {
-  if (streakDays >= 5) return 2;
-  if (streakDays >= 3) return 1.5;
-  return 1;
+export function calculatePoints(deals, calls, talkTimeMinutes, activityPoints = 0) {
+  return Math.round(
+    (deals * POINTS_PER_DEAL) +
+    (calls * POINTS_PER_CALL) +
+    (talkTimeMinutes * POINTS_PER_MINUTE_TALK) +
+    activityPoints
+  );
 }
 
 // Badge definitions
@@ -123,11 +134,9 @@ export const badgeDefinitions = {
   'first-deal': { name: 'First Deal', icon: '🎯', description: 'Closed your first deal', threshold: (s) => s.deals >= 1 },
   'call-machine': { name: 'Call Machine', icon: '📞', description: '50+ calls in a single day', threshold: (s) => s.maxDailyCalls >= 50 },
   'speed-demon': { name: 'Speed Demon', icon: '⚡', description: 'Closed a deal within 24 hours', threshold: () => false },
-  'streak-master': { name: 'Streak Master', icon: '🔥', description: '5+ day activity streak', threshold: (s) => s.streak >= 5 },
   'pipeline-king': { name: 'Pipeline King', icon: '👑', description: 'Pipeline value over €100K', threshold: (s) => s.pipelineValue >= 100000 },
   'rising-star': { name: 'Rising Star', icon: '⭐', description: 'Most improved this month', threshold: () => false },
   'closer': { name: 'Closer', icon: '💰', description: '5+ deals closed this month', threshold: (s) => s.deals >= 5 },
-  'iron-will': { name: 'Iron Will', icon: '💪', description: '7+ day streak', threshold: (s) => s.streak >= 7 },
 };
 
 export function computeBadges(stats) {

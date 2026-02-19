@@ -73,7 +73,7 @@ function Dashboard() {
             {isVisible('missions') && <MissionsWidget />}
             {isVisible('challenge') && <Challenge members={leaderboard} />}
             {isVisible('recentWins') && <RecentWins celebrations={celebrations} />}
-            {isVisible('pointsBreakdown') && <PointsBreakdown />}
+            {isVisible('pointsBreakdown') && <PointsBreakdown xpRules={data?.xpRules} isSalesdag={data?.isSalesdag} />}
             {isVisible('activityFeed') && <ActivityFeed members={leaderboard} />}
             {isVisible('apiStatus') && <ApiStatus usingMock={usingMock} />}
           </div>

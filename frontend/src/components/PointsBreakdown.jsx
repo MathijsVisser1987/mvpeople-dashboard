@@ -1,50 +1,49 @@
-import { Zap, Info } from 'lucide-react';
+import { Zap } from 'lucide-react';
 
-const rules = [
-  { label: 'Placement / Deal', points: '500 pts', color: 'text-mvp-success', bg: 'bg-mvp-success/10' },
-  { label: 'Client Meeting', points: '75 pts', color: 'text-purple-400', bg: 'bg-purple-400/10' },
-  { label: 'Interview', points: '50 pts', color: 'text-blue-400', bg: 'bg-blue-400/10' },
-  { label: 'Application Note', points: '25 pts', color: 'text-cyan-400', bg: 'bg-cyan-400/10' },
-  { label: 'Candidate / Placement Meeting', points: '20 pts', color: 'text-yellow-400', bg: 'bg-yellow-400/10' },
-  { label: 'Task / Application Task', points: '10-15 pts', color: 'text-indigo-400', bg: 'bg-indigo-400/10' },
-  { label: 'Phone Call', points: '10 pts', color: 'text-green-400', bg: 'bg-green-400/10' },
-  { label: 'Note / Email', points: '5 pts', color: 'text-pink-400', bg: 'bg-pink-400/10' },
-  { label: 'Other Activity', points: '3 pts', color: 'text-white/50', bg: 'bg-white/5' },
-  { label: 'Call Made (8x8)', points: '2 pts', color: 'text-mvp-accent', bg: 'bg-mvp-accent/10' },
-  { label: 'Per Minute Talk Time', points: '1 pt', color: 'text-mvp-fire', bg: 'bg-mvp-fire/10' },
+// Color palette for XP rules display
+const COLORS = [
+  'text-mvp-success',
+  'text-blue-400',
+  'text-purple-400',
+  'text-cyan-400',
+  'text-indigo-400',
+  'text-yellow-400',
+  'text-green-400',
+  'text-orange-400',
+  'text-pink-400',
+  'text-mvp-accent',
+  'text-mvp-fire',
 ];
 
-const multipliers = [
-  { label: '3+ Day Streak', mult: '1.5x', color: 'text-orange-400', bg: 'bg-orange-400/10' },
-  { label: '5+ Day Streak', mult: '2x', color: 'text-red-400', bg: 'bg-red-400/10' },
-];
+function formatPoints(pts, salesdagPts) {
+  const label = pts >= 1 ? `${pts} XP` : `${pts} XP`;
+  if (salesdagPts) return `${label} (${salesdagPts} on Thu)`;
+  return label;
+}
 
-export default function PointsBreakdown() {
+export default function PointsBreakdown({ xpRules, isSalesdag }) {
+  // Use API data (single source of truth from backend/src/config/team.js XP_RULES)
+  const rules = xpRules || [];
+
   return (
     <div className="bg-mvp-card rounded-xl border border-mvp-border p-5">
       <div className="flex items-center gap-2 mb-4">
         <Zap size={18} className="text-mvp-accent" />
-        <h2 className="text-lg font-bold font-display">Points System</h2>
+        <h2 className="text-lg font-bold font-display">XP Points</h2>
+        {isSalesdag && (
+          <span className="text-[10px] font-bold text-orange-400 bg-orange-400/15 px-2 py-0.5 rounded-full font-display">
+            SALESDAG 2X
+          </span>
+        )}
       </div>
 
-      <div className="space-y-1.5 mb-4">
-        {rules.map((rule) => (
+      <div className="space-y-1.5">
+        {rules.map((rule, i) => (
           <div key={rule.label} className="flex items-center justify-between p-2 rounded-lg bg-mvp-dark border border-mvp-border">
             <span className="text-xs text-white/70 font-body">{rule.label}</span>
-            <span className={`text-xs font-bold font-display ${rule.color}`}>{rule.points}</span>
-          </div>
-        ))}
-      </div>
-
-      <div className="flex items-center gap-1.5 mb-2">
-        <Info size={12} className="text-white/30" />
-        <span className="text-xs text-white/30 uppercase tracking-wider font-display">Streak Multipliers</span>
-      </div>
-      <div className="space-y-1.5">
-        {multipliers.map((m) => (
-          <div key={m.label} className="flex items-center justify-between p-2 rounded-lg bg-mvp-dark border border-mvp-border">
-            <span className="text-xs text-white/70 font-body">{m.label}</span>
-            <span className={`text-xs font-bold font-display ${m.color}`}>{m.mult}</span>
+            <span className={`text-xs font-bold font-display ${COLORS[i % COLORS.length]}`}>
+              {formatPoints(rule.points, rule.salesdagPoints)}
+            </span>
           </div>
         ))}
       </div>
