@@ -50,12 +50,17 @@ export default function TVSlideshow() {
     return () => clearInterval(timer);
   }, [slides.length, showCelebration]);
 
-  // Pick up unseen celebrations
+  // Pick up unseen celebrations (first-time detection only)
+  const shownUnseenRef = useRef(new Set());
   useEffect(() => {
     if (unseen.length > 0 && !showCelebration) {
-      const cel = unseen[0];
-      setShowCelebration(cel);
-      markSeen([cel.id]);
+      const cel = unseen.find(c => !shownUnseenRef.current.has(c.id));
+      if (cel) {
+        shownUnseenRef.current.add(cel.id);
+        lastReplayRef.current[cel.id] = Date.now();
+        setShowCelebration(cel);
+        markSeen([cel.id]);
+      }
     }
   }, [unseen, showCelebration, markSeen]);
 
@@ -67,7 +72,7 @@ export default function TVSlideshow() {
     const recent = celebrations.filter(c => {
       const ts = new Date(c.timestamp).getTime();
       if (ts < cutoff) return false;
-      // Don't replay if shown less than 1 rotation ago
+      // Don't replay if shown less than 1 full rotation ago
       const lastShown = lastReplayRef.current[c.id] || 0;
       return now - lastShown > slides.length * SLIDE_DURATION;
     });
