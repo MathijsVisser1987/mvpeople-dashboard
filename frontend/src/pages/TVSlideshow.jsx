@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useLeaderboard } from '../hooks/useLeaderboard';
 import { useCelebrations } from '../hooks/useCelebrations';
@@ -16,6 +16,7 @@ import CallStatsTodaySlide from '../components/tv/CallStatsTodaySlide';
 import CelebrationOverlay from '../components/tv/CelebrationOverlay';
 
 const SLIDE_DURATION = 12000; // 12 seconds per slide
+const CELEBRATION_REPLAY_HOURS = 4; // Re-show celebrations for this many hours
 
 export default function TVSlideshow() {
   const { data } = useLeaderboard();
@@ -23,6 +24,7 @@ export default function TVSlideshow() {
   const { standings: ytdStandings } = useYTD();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [showCelebration, setShowCelebration] = useState(null);
+  const lastReplayRef = useRef({}); // track last replay time per celebration id
 
   const leaderboard = data?.leaderboard || [];
   const teamStats = data?.teamStats || {};
@@ -56,6 +58,25 @@ export default function TVSlideshow() {
       markSeen([cel.id]);
     }
   }, [unseen, showCelebration, markSeen]);
+
+  // Re-show recent celebrations at start of each slide rotation
+  useEffect(() => {
+    if (currentSlide !== 0 || showCelebration) return;
+    const now = Date.now();
+    const cutoff = now - CELEBRATION_REPLAY_HOURS * 60 * 60 * 1000;
+    const recent = celebrations.filter(c => {
+      const ts = new Date(c.timestamp).getTime();
+      if (ts < cutoff) return false;
+      // Don't replay if shown less than 1 rotation ago
+      const lastShown = lastReplayRef.current[c.id] || 0;
+      return now - lastShown > slides.length * SLIDE_DURATION;
+    });
+    if (recent.length > 0) {
+      const cel = recent[0];
+      lastReplayRef.current[cel.id] = now;
+      setShowCelebration(cel);
+    }
+  }, [currentSlide, showCelebration, celebrations, slides.length]);
 
   // Auto-dismiss celebration after 8 seconds
   useEffect(() => {

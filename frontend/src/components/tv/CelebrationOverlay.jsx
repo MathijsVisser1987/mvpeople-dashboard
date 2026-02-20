@@ -5,47 +5,99 @@ import Avatar from '../Avatar';
 
 export default function CelebrationOverlay({ celebration, onDismiss }) {
   useEffect(() => {
-    // Fire confetti from both sides
-    const duration = 5000;
-    const end = Date.now() + duration;
-    const colors = ['#59D6D6', '#ffd700', '#ff6b35', '#00e676', celebration.recruiterColor];
+    const colors = ['#59D6D6', '#ffd700', '#ff6b35', '#00e676', '#ff5ecc', '#6c5ce7', celebration.recruiterColor];
 
+    // Continuous confetti from both sides for the full duration
+    const duration = 7000;
+    const end = Date.now() + duration;
+    let animId;
     const frame = () => {
       confetti({
-        particleCount: 4,
+        particleCount: 6,
         angle: 60,
-        spread: 55,
-        origin: { x: 0, y: 0.6 },
+        spread: 65,
+        origin: { x: 0, y: 0.5 },
         colors,
+        startVelocity: 45,
       });
       confetti({
-        particleCount: 4,
+        particleCount: 6,
         angle: 120,
-        spread: 55,
-        origin: { x: 1, y: 0.6 },
+        spread: 65,
+        origin: { x: 1, y: 0.5 },
         colors,
+        startVelocity: 45,
       });
-      if (Date.now() < end) requestAnimationFrame(frame);
+      if (Date.now() < end) {
+        animId = requestAnimationFrame(frame);
+      }
     };
     frame();
 
-    // Also fire a big burst from the center
-    setTimeout(() => {
-      confetti({
-        particleCount: 100,
-        spread: 100,
-        origin: { x: 0.5, y: 0.5 },
-        colors,
-        startVelocity: 30,
-      });
-    }, 500);
+    // Big center burst at start
+    confetti({
+      particleCount: 150,
+      spread: 120,
+      origin: { x: 0.5, y: 0.4 },
+      colors,
+      startVelocity: 45,
+      gravity: 0.8,
+    });
 
-    // Try to play sound (may be blocked by autoplay policy)
+    // Firework bursts at different positions
+    const bursts = [
+      { delay: 800, x: 0.3, y: 0.3 },
+      { delay: 1500, x: 0.7, y: 0.25 },
+      { delay: 2200, x: 0.5, y: 0.5 },
+      { delay: 3000, x: 0.2, y: 0.4 },
+      { delay: 3800, x: 0.8, y: 0.35 },
+      { delay: 4500, x: 0.5, y: 0.3 },
+      { delay: 5500, x: 0.4, y: 0.45 },
+      { delay: 6200, x: 0.6, y: 0.4 },
+    ];
+
+    const burstTimers = bursts.map(({ delay, x, y }) =>
+      setTimeout(() => {
+        confetti({
+          particleCount: 80,
+          spread: 360,
+          origin: { x, y },
+          colors,
+          startVelocity: 35,
+          gravity: 1,
+          ticks: 200,
+          scalar: 1.2,
+        });
+      }, delay)
+    );
+
+    // Falling stars / sparkle effect
+    const sparkleTimer = setTimeout(() => {
+      confetti({
+        particleCount: 200,
+        spread: 180,
+        origin: { x: 0.5, y: 0 },
+        colors,
+        startVelocity: 10,
+        gravity: 0.4,
+        ticks: 400,
+        scalar: 0.8,
+        drift: 0,
+      });
+    }, 1000);
+
+    // Try to play sound
     try {
       const audio = new Audio('/sounds/celebration.mp3');
       audio.volume = 0.5;
       audio.play().catch(() => {});
     } catch {}
+
+    return () => {
+      cancelAnimationFrame(animId);
+      burstTimers.forEach(clearTimeout);
+      clearTimeout(sparkleTimer);
+    };
   }, [celebration.recruiterColor]);
 
   return (
