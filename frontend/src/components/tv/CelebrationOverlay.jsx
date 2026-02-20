@@ -54,7 +54,8 @@ export default function CelebrationOverlay({ celebration, onDismiss }) {
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.8 }}
       transition={{ duration: 0.4 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-mvp-dark/95"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-mvp-dark/95 cursor-pointer"
+      onClick={onDismiss}
     >
       <div className="text-center">
         {/* Title */}

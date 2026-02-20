@@ -48,16 +48,21 @@ export default function TVSlideshow() {
     return () => clearInterval(timer);
   }, [slides.length, showCelebration]);
 
-  // Handle unseen celebrations
+  // Pick up unseen celebrations
   useEffect(() => {
     if (unseen.length > 0 && !showCelebration) {
       const cel = unseen[0];
       setShowCelebration(cel);
       markSeen([cel.id]);
-      const timer = setTimeout(() => setShowCelebration(null), 8000);
-      return () => clearTimeout(timer);
     }
   }, [unseen, showCelebration, markSeen]);
+
+  // Auto-dismiss celebration after 8 seconds
+  useEffect(() => {
+    if (!showCelebration) return;
+    const timer = setTimeout(() => setShowCelebration(null), 8000);
+    return () => clearTimeout(timer);
+  }, [showCelebration]);
 
   const renderSlide = () => {
     const slideName = slides[currentSlide];
