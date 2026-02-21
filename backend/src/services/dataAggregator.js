@@ -27,10 +27,11 @@ async function loadTargetOverrides() {
 }
 
 // Cache to avoid hammering APIs
+// Short TTL so the incremental deal scan can make progress across requests
 let cache = {
   leaderboard: null,
   lastFetch: null,
-  ttl: 10 * 60 * 1000, // 10 minute cache (matches frontend refresh interval)
+  ttl: 2 * 60 * 1000, // 2 minute cache — keeps deal scan progressing
 };
 
 // Get call stats from 8x8 for all team members
