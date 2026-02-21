@@ -103,19 +103,23 @@ async function getDealStats() {
     console.error('[Aggregator] Vincere fetch error:', err.message);
   }
 
-  // Supplement pipeline value from /deal/search if placement scan didn't yield values
+  // Supplement with /deal/search: both deal count and pipeline value
   try {
     const dealSearchStats = await vincereService.getDealStats(teamMembers);
     for (const m of teamMembers) {
       const dealData = dealSearchStats[m.vincereId];
-      if (dealData && dealData.pipelineValue > 0) {
-        if (!stats[m.vincereId]) {
-          stats[m.vincereId] = { deals: 0, activePlacements: 0, pipelineValue: 0 };
-        }
-        // Use deal search pipeline value if placement scan didn't find any
-        if (!stats[m.vincereId].pipelineValue) {
-          stats[m.vincereId].pipelineValue = dealData.pipelineValue;
-        }
+      if (!dealData) continue;
+      if (!stats[m.vincereId]) {
+        stats[m.vincereId] = { deals: 0, activePlacements: 0, pipelineValue: 0 };
+      }
+      // Use deal search count if it found more deals than placement scan
+      if (dealData.dealCount > (stats[m.vincereId].deals || 0)) {
+        console.log(`[Aggregator] ${m.shortName}: deal search found ${dealData.dealCount} deals vs scan ${stats[m.vincereId].deals}`);
+        stats[m.vincereId].deals = dealData.dealCount;
+      }
+      // Use deal search pipeline value if placement scan didn't find any
+      if (dealData.pipelineValue > 0 && !stats[m.vincereId].pipelineValue) {
+        stats[m.vincereId].pipelineValue = dealData.pipelineValue;
       }
     }
   } catch (err) {

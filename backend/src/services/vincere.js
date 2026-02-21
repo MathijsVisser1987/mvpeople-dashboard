@@ -348,7 +348,7 @@ class VincereService {
     // Month-specific scan key using Amsterdam timezone so it resets correctly
     const monthStart = getAmsterdamMonthStart();
     const monthKey = getAmsterdamMonthKey();
-    const KV_SCAN_KEY = `vincere-deals-scan-${monthKey}`;
+    const KV_SCAN_KEY = `vincere-deals-scan-v2-${monthKey}`;
 
     // Load existing scan state from KV
     let scanState = null;
@@ -411,9 +411,9 @@ class VincereService {
           break;
         }
 
-        // Fetch a page of job IDs
+        // Fetch a page of job IDs (newest first so current-month deals are found quickly)
         const data = await this._apiGet(
-          '/job/search/fl=id;sort=created_date asc',
+          '/job/search/fl=id;sort=created_date desc',
           { start: nextStart }
         );
         const items = data?.result?.items || [];
