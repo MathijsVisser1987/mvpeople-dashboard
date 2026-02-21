@@ -340,13 +340,14 @@ class VincereService {
   }
 
   // Scan a chunk of jobs for placements, accumulating results in KV
-  async getAllTeamDeals(teamMembers) {
+  // Accepts optional monthStartParam (Amsterdam-aware) and monthKeyParam for consistent date range
+  async getAllTeamDeals(teamMembers, monthStartParam, monthKeyParam) {
     const store = await getRedis();
 
     // Month-specific scan key so it auto-resets each month
     const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const monthStart = monthStartParam || new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthKey = monthKeyParam || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     const KV_SCAN_KEY = `vincere-deals-scan-${monthKey}`;
 
     // Load existing scan state from KV
@@ -523,9 +524,10 @@ class VincereService {
   }
 
   // Search Vincere deals for pipeline value (uses /deal/search endpoint)
-  async getDealStats(teamMembers) {
+  // Accepts optional monthStartParam for consistent date range
+  async getDealStats(teamMembers, monthStartParam) {
     const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthStart = monthStartParam || new Date(now.getFullYear(), now.getMonth(), 1);
     const stats = {};
     for (const m of teamMembers) {
       stats[m.vincereId] = { dealCount: 0, pipelineValue: 0, wonValue: 0 };

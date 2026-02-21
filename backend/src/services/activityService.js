@@ -255,7 +255,8 @@ class ActivityService {
   }
 
   // Fetch and aggregate activities for ALL team members (current month)
-  async getAllTeamActivities() {
+  // Accepts optional startOfMonth/now Date objects for consistent date ranges
+  async getAllTeamActivities(startOfMonthParam, nowParam) {
     const store = await getRedis();
 
     // Check cache
@@ -274,8 +275,8 @@ class ActivityService {
       }
     }
 
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const now = nowParam || new Date();
+    const startOfMonth = startOfMonthParam || new Date(now.getFullYear(), now.getMonth(), 1);
     const startDate = startOfMonth.toISOString();
     const endDate = now.toISOString();
 

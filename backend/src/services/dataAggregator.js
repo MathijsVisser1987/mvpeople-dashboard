@@ -9,6 +9,32 @@ import { calculateKPIActuals, calculateKPIStatus, TARGET_PROFILES } from '../con
 
 const KV_TARGETS_KEY = 'kpi-target-overrides';
 
+// Compute Amsterdam-aware date range so ALL services use the same boundaries.
+// Fixes: timezone inconsistency (UTC vs Amsterdam) and stale-`now` drift between services.
+function getConsistentDateRange() {
+  const now = new Date();
+
+  // Current date parts in Amsterdam timezone
+  const ams = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Amsterdam' }));
+  const year = ams.getFullYear();
+  const month = ams.getMonth(); // 0-indexed
+  const day = ams.getDate();
+
+  // Amsterdam UTC offset on the 1st of this month (handles CET/CEST automatically)
+  const ref = new Date(Date.UTC(year, month, 1, 12, 0, 0));
+  const utcRef = new Date(ref.toLocaleString('en-US', { timeZone: 'UTC' }));
+  const amsRef = new Date(ref.toLocaleString('en-US', { timeZone: 'Europe/Amsterdam' }));
+  const offsetMs = amsRef.getTime() - utcRef.getTime();
+
+  // Midnight Amsterdam expressed as UTC Date
+  const startOfMonth = new Date(Date.UTC(year, month, 1) - offsetMs);
+  const startOfToday = new Date(Date.UTC(year, month, day) - offsetMs);
+
+  const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
+
+  return { now, startOfMonth, startOfToday, monthKey };
+}
+
 // Load custom target overrides from Redis
 async function loadTargetOverrides() {
   try {
@@ -34,12 +60,12 @@ let cache = {
 };
 
 // Get call stats from 8x8 for all team members
-async function getCallStats() {
+async function getCallStats(startOfMonth, now) {
   const stats = {};
 
   try {
     // ensureAuthenticated will auto-login from env vars if available
-    const rawData = await eightByEightService.getMonthStats();
+    const rawData = await eightByEightService.getMonthStats(startOfMonth, now);
     const parsed = eightByEightService.parseExtensionStats(rawData);
 
     for (const member of teamMembers) {
@@ -56,11 +82,11 @@ async function getCallStats() {
 }
 
 // Get today's call stats from 8x8
-async function getTodayCallStats() {
+async function getTodayCallStats(startOfToday, now) {
   const stats = {};
 
   try {
-    const rawData = await eightByEightService.getTodayStats();
+    const rawData = await eightByEightService.getTodayStats(startOfToday, now);
     const parsed = eightByEightService.parseExtensionStats(rawData);
 
     for (const member of teamMembers) {
@@ -79,7 +105,7 @@ async function getTodayCallStats() {
 // Get placement/deal stats from Vincere
 // Strategy: fetch all jobs, group by created_by.id, check placements per job
 // Also tries /deal/search for pipeline values
-async function getDealStats() {
+async function getDealStats(startOfMonth, monthKey) {
   const stats = {};
   let scanComplete = false;
 
@@ -89,7 +115,7 @@ async function getDealStats() {
   }
 
   try {
-    const result = await vincereService.getAllTeamDeals(teamMembers);
+    const result = await vincereService.getAllTeamDeals(teamMembers, startOfMonth, monthKey);
     // result is { stats: {...}, scanComplete: bool }
     const resultStats = result?.stats || result || {};
     scanComplete = result?.scanComplete || false;
@@ -104,7 +130,7 @@ async function getDealStats() {
 
   // Supplement with /deal/search: both pipeline values AND deal counts
   try {
-    const dealSearchStats = await vincereService.getDealStats(teamMembers);
+    const dealSearchStats = await vincereService.getDealStats(teamMembers, startOfMonth);
     for (const m of teamMembers) {
       const dealData = dealSearchStats[m.vincereId];
       if (dealData) {
@@ -129,14 +155,14 @@ async function getDealStats() {
 }
 
 // Get activity stats from Vincere for all team members
-async function getActivityStats() {
+async function getActivityStats(startOfMonth, now) {
   if (!(await vincereService.isAuthenticated())) {
     console.log('[Aggregator] Vincere not authenticated, skipping activity fetch');
     return {};
   }
 
   try {
-    return await activityService.getAllTeamActivities();
+    return await activityService.getAllTeamActivities(startOfMonth, now);
   } catch (err) {
     console.error('[Aggregator] Activity fetch error:', err.message);
     return {};
@@ -150,16 +176,20 @@ export async function buildLeaderboard() {
     return cache.leaderboard;
   }
 
+  // Single date computation — all services use the same Amsterdam-aware boundaries
+  const { now, startOfMonth, startOfToday, monthKey } = getConsistentDateRange();
+  console.log(`[Aggregator] Date range: ${startOfMonth.toISOString()} → ${now.toISOString()} (month ${monthKey})`);
+
   // Fetch 8x8 calls (month + today) + Vincere activities + target overrides concurrently
   const [callStats, todayCallStats, activityStats, targetOverrides] = await Promise.all([
-    getCallStats(),
-    getTodayCallStats(),
-    getActivityStats(),
+    getCallStats(startOfMonth, now),
+    getTodayCallStats(startOfToday, now),
+    getActivityStats(startOfMonth, now),
     loadTargetOverrides(),
   ]);
 
   // Deal scan is heavy (800+ API calls) — run after activities to avoid 429s
-  const dealResult = await getDealStats();
+  const dealResult = await getDealStats(startOfMonth, monthKey);
   const dealStats = dealResult.stats;
   const scanComplete = dealResult.scanComplete;
 

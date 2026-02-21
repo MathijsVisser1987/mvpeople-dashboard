@@ -170,10 +170,18 @@ class EightByEightService {
   async getExtensionSummary(startTime, endTime, timezone = 'Europe/Amsterdam') {
     await this.ensureAuthenticated();
 
-    // Format: yyyy-MM-dd HH:mm:ss
+    // Format in Amsterdam timezone — 8x8 interprets these strings using the timeZone param.
+    // Previously used UTC via toISOString(), which caused a 1-2 hour gap.
     const formatDate = (d) => {
       const date = d instanceof Date ? d : new Date(d);
-      return date.toISOString().replace('T', ' ').substring(0, 19);
+      const parts = {};
+      new Intl.DateTimeFormat('en-CA', {
+        timeZone: timezone,
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false,
+      }).formatToParts(date).forEach(p => { parts[p.type] = p.value; });
+      return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
     };
 
     const params = new URLSearchParams({
@@ -217,17 +225,17 @@ class EightByEightService {
   }
 
   // Get today's stats for all extensions
-  async getTodayStats() {
-    const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    return this.getExtensionSummary(startOfDay, now);
+  async getTodayStats(startOfToday, now) {
+    const s = startOfToday || (() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); })();
+    const e = now || new Date();
+    return this.getExtensionSummary(s, e);
   }
 
   // Get stats for the current month
-  async getMonthStats() {
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    return this.getExtensionSummary(startOfMonth, now);
+  async getMonthStats(startOfMonth, now) {
+    const s = startOfMonth || (() => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), 1); })();
+    const e = now || new Date();
+    return this.getExtensionSummary(s, e);
   }
 
   // Parse extension stats into a simpler format keyed by extension number

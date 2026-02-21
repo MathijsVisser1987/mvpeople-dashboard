@@ -169,10 +169,11 @@ export function calculateKPIStatus(profileId, actuals, targetOverrides) {
   // Merge profile defaults with any individual overrides
   const mergedTargets = { ...profile.targets, ...(targetOverrides?.overrides || {}) };
 
-  // Pro-rate targets based on day of month
+  // Pro-rate targets based on day of month (Amsterdam timezone)
   const now = new Date();
-  const dayOfMonth = now.getDate();
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const ams = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Amsterdam' }));
+  const dayOfMonth = ams.getDate();
+  const daysInMonth = new Date(ams.getFullYear(), ams.getMonth() + 1, 0).getDate();
   const monthProgress = dayOfMonth / daysInMonth;
 
   const kpis = [];
