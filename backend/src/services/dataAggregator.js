@@ -181,16 +181,18 @@ export async function buildLeaderboard() {
     const callsToday = todayCalls.callsMade || todayCalls.externalCallsMade || 0;
     const talkTimeToday = todayCalls.totalTalkTimeMinutes || 0;
 
-    // Deal counting: use MAX of three sources (placement scan, activity-based, deal search)
-    // Activity-based is fast & reliable; scan has renewal filtering; deal search is direct
+    // Deal counting: use MAX of placement scan and activity-based count
+    // Activity-based is fast & reliable; scan has renewal filtering
+    // Note: dealSearchCount is NOT used for deal counting — /deal/search returns ALL deals
+    // (open, negotiating, etc.) not just placements, which inflates the number.
+    // It's only used for pipeline value supplementing.
     const scanDeals = deals.deals || 0;
-    const dealSearchDeals = deals.dealSearchCount || 0;
     const activityDeals =
       (activities.byActivityName?.PLACEMENT_PERMANENT || 0) +
       (activities.byActivityName?.PLACEMENT_CONTRACT || 0);
-    const dealsCount = Math.max(scanDeals, activityDeals, dealSearchDeals);
-    if (scanDeals !== activityDeals || dealSearchDeals > 0) {
-      console.log(`[Aggregator] ${member.shortName} deal count: scan=${scanDeals}, activities=${activityDeals}, dealSearch=${dealSearchDeals}, using=${dealsCount}`);
+    const dealsCount = Math.max(scanDeals, activityDeals);
+    if (scanDeals !== activityDeals) {
+      console.log(`[Aggregator] ${member.shortName} deal count: scan=${scanDeals}, activities=${activityDeals}, using=${dealsCount}`);
     }
     const pipelineValue = deals.pipelineValue || 0;
 

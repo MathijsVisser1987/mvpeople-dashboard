@@ -576,11 +576,15 @@ class VincereService {
 
           if (vincereId && stats[vincereId]) {
             const value = deal.nfi || deal.value || deal.fee || deal.margin || 0;
-            stats[vincereId].dealCount++;
-            stats[vincereId].pipelineValue += (typeof value === 'number' ? value : 0);
-            if (deal.status === 'WON' || deal.status === 'won' || deal.status === 'CLOSED_WON') {
+            // Only count WON/CLOSED deals as actual deals (open/pipeline deals are not placements)
+            const isWon = deal.status === 'WON' || deal.status === 'won' || deal.status === 'CLOSED_WON'
+              || deal.status === 'Closed' || deal.status === 'closed';
+            if (isWon) {
+              stats[vincereId].dealCount++;
               stats[vincereId].wonValue += (typeof value === 'number' ? value : 0);
             }
+            // Pipeline value includes all deals (open + won)
+            stats[vincereId].pipelineValue += (typeof value === 'number' ? value : 0);
           }
         }
 

@@ -753,4 +753,217 @@ app.get('/api/debug/verify-mappings', async (req, res) => {
   }
 });
 
+// DIAGNOSTIC: single endpoint that tests every step of the data pipeline
+app.get('/api/debug/diagnostic', async (req, res) => {
+  const report = {
+    timestamp: new Date().toISOString(),
+    steps: {},
+  };
+
+  // Step 1: Auth check
+  try {
+    const isAuth = await vincereService.isAuthenticated();
+    report.steps.auth = { ok: isAuth, domain: vincereService.domain };
+  } catch (err) {
+    report.steps.auth = { ok: false, error: err.message };
+  }
+
+  if (!report.steps.auth.ok) {
+    return res.json(report);
+  }
+
+  // Step 2: Fetch 1 page of activities — show raw format
+  try {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const data = await vincereService._apiPost('/activities', {
+      created_date_from: startOfMonth.toISOString(),
+      created_date_to: now.toISOString(),
+    }, { index: 0 });
+
+    const items = data?.content || [];
+    // Collect unique created_by_ids from this page
+    const createdByIds = [...new Set(items.map(a => a.created_by_id).filter(Boolean))];
+    const { teamMembers: tm } = await import('./config/team.js');
+    const teamIds = new Set(tm.map(m => m.vincereId));
+    const matchedIds = createdByIds.filter(id => teamIds.has(id));
+    const unmatchedIds = createdByIds.filter(id => !teamIds.has(id));
+
+    report.steps.activities = {
+      ok: items.length > 0,
+      responseTopKeys: data ? Object.keys(data) : null,
+      pageSize: items.length,
+      numElements: data?.num_of_elements,
+      isLast: data?.last,
+      firstItemKeys: items[0] ? Object.keys(items[0]).sort() : null,
+      firstItem: items[0] ? {
+        category: items[0].category,
+        entity_type: items[0].entity_type,
+        activity_name: items[0].activity_name,
+        created_by_id: items[0].created_by_id,
+        created_by_name: items[0].created_by_name,
+        created_date: items[0].created_date,
+      } : null,
+      createdByIdsOnPage: createdByIds,
+      teamVincereIds: [...teamIds],
+      matchedToTeam: matchedIds,
+      unmatchedToTeam: unmatchedIds,
+      diagnosis: items.length === 0
+        ? 'NO_ACTIVITIES_RETURNED — Vincere returned 0 activities for current month'
+        : matchedIds.length === 0
+          ? 'ID_MISMATCH — Activities exist but no created_by_id matches any team vincereId. Check vincereId values in team.js'
+          : `OK — ${matchedIds.length}/${createdByIds.length} unique users matched to team`,
+    };
+  } catch (err) {
+    report.steps.activities = { ok: false, error: err.message };
+  }
+
+  // Step 3: Verify team vincereIds against Vincere user lookup
+  try {
+    const { teamMembers: tm } = await import('./config/team.js');
+    const userChecks = [];
+    for (const m of tm.slice(0, 3)) { // Check first 3 to avoid rate limits
+      try {
+        const user = await vincereService._apiGet(`/user/${m.vincereId}`);
+        userChecks.push({
+          name: m.shortName,
+          vincereId: m.vincereId,
+          configEmail: m.email,
+          vincereEmail: user?.email,
+          nameInVincere: user?.name || `${user?.first_name} ${user?.last_name}`,
+          emailMatch: (m.email || '').toLowerCase() === (user?.email || '').toLowerCase(),
+          userExists: true,
+        });
+      } catch (err) {
+        userChecks.push({
+          name: m.shortName,
+          vincereId: m.vincereId,
+          userExists: false,
+          error: err.message,
+        });
+      }
+    }
+    const allExist = userChecks.every(u => u.userExists);
+    report.steps.userVerification = {
+      ok: allExist,
+      checked: userChecks,
+      diagnosis: !allExist
+        ? 'USER_NOT_FOUND — Some vincereIds do not exist in Vincere. Check team.js vincereId values'
+        : userChecks.some(u => !u.emailMatch)
+          ? 'EMAIL_MISMATCH — Users exist but emails do not match. Deal attribution may fail'
+          : 'OK — Users verified',
+    };
+  } catch (err) {
+    report.steps.userVerification = { ok: false, error: err.message };
+  }
+
+  // Step 4: Test job search + placement fetch
+  try {
+    const jobData = await vincereService._apiGet(
+      '/job/search/fl=id;sort=created_date desc',
+      { start: 0 }
+    );
+    const jobItems = jobData?.result?.items || [];
+    const totalJobs = jobData?.result?.total || 0;
+    let placementSample = null;
+    let placementError = null;
+
+    if (jobItems.length > 0) {
+      try {
+        const placements = await vincereService.getJobPlacements(jobItems[0].id);
+        placementSample = {
+          jobId: jobItems[0].id,
+          placementsFound: Array.isArray(placements) ? placements.length : 0,
+          firstPlacementKeys: Array.isArray(placements) && placements[0] ? Object.keys(placements[0]).sort() : null,
+          firstPlacement: Array.isArray(placements) && placements[0] ? {
+            placed_by: placements[0].placed_by,
+            placed_date: placements[0].placed_date,
+            status: placements[0].status,
+            application_id: placements[0].application_id,
+          } : null,
+        };
+      } catch (err) {
+        placementError = err.message;
+      }
+    }
+
+    report.steps.jobs = {
+      ok: jobItems.length > 0,
+      totalJobs,
+      sampleJobId: jobItems[0]?.id,
+      placementSample,
+      placementError,
+    };
+  } catch (err) {
+    report.steps.jobs = { ok: false, error: err.message };
+  }
+
+  // Step 5: Test deal search
+  try {
+    const dealData = await vincereService._apiGet(
+      '/deal/search/fl=id,title,status,created_by,owner,value,nfi;sort=created_date desc',
+      { start: 0 }
+    );
+    const dealItems = dealData?.result?.items || [];
+    report.steps.deals = {
+      ok: true,
+      totalDeals: dealData?.result?.total || 0,
+      sampleDeal: dealItems[0] ? {
+        id: dealItems[0].id,
+        title: dealItems[0].title,
+        status: dealItems[0].status,
+        owner: dealItems[0].owner,
+        created_by: dealItems[0].created_by,
+        value: dealItems[0].value || dealItems[0].nfi,
+      } : null,
+    };
+  } catch (err) {
+    report.steps.deals = { ok: false, error: err.message };
+  }
+
+  // Step 6: Check 8x8
+  try {
+    const eightByEightService = (await import('./services/eightByEight.js')).default;
+    report.steps.eightByEight = {
+      configured: !!(process.env.EIGHT_BY_EIGHT_API_KEY && process.env.EIGHT_BY_EIGHT_USERNAME),
+      authenticated: eightByEightService.isAuthenticated(),
+    };
+  } catch (err) {
+    report.steps.eightByEight = { ok: false, error: err.message };
+  }
+
+  // Step 7: Check Redis / KV
+  try {
+    const hasKV = !!(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
+    let kvWorking = false;
+    if (hasKV) {
+      const { Redis } = await import('@upstash/redis');
+      const r = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
+      await r.set('diagnostic-test', 'ok');
+      const val = await r.get('diagnostic-test');
+      kvWorking = val === 'ok';
+      await r.del('diagnostic-test');
+    }
+    report.steps.redis = { configured: hasKV, working: kvWorking };
+  } catch (err) {
+    report.steps.redis = { configured: true, working: false, error: err.message };
+  }
+
+  // Overall summary
+  const issues = [];
+  if (!report.steps.auth?.ok) issues.push('AUTH_FAILED');
+  if (!report.steps.activities?.ok) issues.push('NO_ACTIVITIES');
+  if (report.steps.activities?.diagnosis?.startsWith('ID_MISMATCH')) issues.push('VINCERE_ID_MISMATCH');
+  if (!report.steps.userVerification?.ok) issues.push('USER_LOOKUP_FAILED');
+  if (!report.steps.jobs?.ok) issues.push('JOB_SEARCH_FAILED');
+  if (!report.steps.eightByEight?.configured) issues.push('8X8_NOT_CONFIGURED');
+  if (!report.steps.redis?.working) issues.push('REDIS_NOT_WORKING');
+
+  report.summary = issues.length === 0
+    ? 'ALL_OK — Data pipeline is functioning. If dashboard still shows 0, check frontend or cache timing.'
+    : `ISSUES_FOUND: ${issues.join(', ')}`;
+
+  res.json(report);
+});
+
 export default app;
