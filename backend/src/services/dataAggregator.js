@@ -30,7 +30,7 @@ async function loadTargetOverrides() {
 let cache = {
   leaderboard: null,
   lastFetch: null,
-  ttl: 60 * 1000, // 1 minute cache
+  ttl: 10 * 60 * 1000, // 10 minute cache (matches frontend refresh interval)
 };
 
 // Get call stats from 8x8 for all team members

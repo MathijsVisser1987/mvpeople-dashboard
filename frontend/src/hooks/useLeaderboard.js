@@ -89,8 +89,8 @@ export function useLeaderboard() {
 
   useEffect(() => {
     fetchData();
-    // Auto-refresh every 60 seconds
-    const interval = setInterval(() => fetchData(), 60000);
+    // Auto-refresh every 10 minutes
+    const interval = setInterval(() => fetchData(), 10 * 60 * 1000);
     return () => clearInterval(interval);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
