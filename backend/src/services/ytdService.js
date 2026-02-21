@@ -1,6 +1,8 @@
 // YTD (Year-To-Date) MVP tracking service
 // Stores monthly point snapshots in Redis to track cumulative performance across the year
 
+import { getAmsterdamNow } from '../config/timezone.js';
+
 let redis = null;
 
 async function getRedis() {
@@ -27,9 +29,9 @@ async function updateCurrentMonth(leaderboardData) {
   const store = await getRedis();
   if (!store || !leaderboardData?.leaderboard) return;
 
-  const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Amsterdam' }));
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const ams = getAmsterdamNow();
+  const year = ams.year;
+  const month = String(ams.month + 1).padStart(2, '0');
   const key = getKey(year);
 
   try {
@@ -74,7 +76,7 @@ async function getStandings(year) {
   const store = await getRedis();
   if (!store) return [];
 
-  const resolvedYear = year || new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Amsterdam' })).getFullYear();
+  const resolvedYear = year || getAmsterdamNow().year;
   const key = getKey(resolvedYear);
 
   try {
@@ -83,9 +85,8 @@ async function getStandings(year) {
 
     const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
 
-    // Current month key
-    const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Amsterdam' }));
-    const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
+    // Current month key (Amsterdam timezone)
+    const currentMonth = String(getAmsterdamNow().month + 1).padStart(2, '0');
 
     // Convert to sorted array
     const standings = Object.entries(data)

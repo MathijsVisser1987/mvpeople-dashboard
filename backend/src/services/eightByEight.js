@@ -3,6 +3,8 @@
 // Auth: POST /analytics/work/v1/oauth/token
 // Data: GET  /analytics/work/v2/extsum
 
+import { getAmsterdamTodayStart, getAmsterdamMonthStart, formatAmsterdamISO } from '../config/timezone.js';
+
 // Token persistence via Upstash Redis (same as vincere.js)
 let redis = null;
 
@@ -167,13 +169,14 @@ class EightByEightService {
   }
 
   // Get extension summary for all extensions in a time range
+  // startTime/endTime should be Date objects; they are formatted as Amsterdam local time
   async getExtensionSummary(startTime, endTime, timezone = 'Europe/Amsterdam') {
     await this.ensureAuthenticated();
 
-    // Format: yyyy-MM-dd HH:mm:ss
+    // Format as Amsterdam local time (yyyy-MM-dd HH:mm:ss) since we pass timeZone=Europe/Amsterdam
     const formatDate = (d) => {
       const date = d instanceof Date ? d : new Date(d);
-      return date.toISOString().replace('T', ' ').substring(0, 19);
+      return formatAmsterdamISO(date).replace('T', ' ').substring(0, 19);
     };
 
     const params = new URLSearchParams({
@@ -216,17 +219,17 @@ class EightByEightService {
     return data;
   }
 
-  // Get today's stats for all extensions
+  // Get today's stats for all extensions (Amsterdam timezone)
   async getTodayStats() {
     const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfDay = getAmsterdamTodayStart();
     return this.getExtensionSummary(startOfDay, now);
   }
 
-  // Get stats for the current month
+  // Get stats for the current month (Amsterdam timezone)
   async getMonthStats() {
     const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfMonth = getAmsterdamMonthStart();
     return this.getExtensionSummary(startOfMonth, now);
   }
 

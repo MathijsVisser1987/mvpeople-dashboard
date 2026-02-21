@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { buildLeaderboard, clearCache } from '../services/dataAggregator.js';
 import { badgeDefinitions } from '../config/team.js';
+import { getAmsterdamMonthKey } from '../config/timezone.js';
 
 const router = Router();
 
@@ -63,9 +64,8 @@ router.post('/refresh', async (req, res) => {
       const redis = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
       await redis.del('vincere-deals-cache');
       await redis.del('vincere-deals-scan');
-      // Also clear month-specific scan key
-      const now = new Date();
-      const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      // Clear month-specific scan key using Amsterdam timezone
+      const monthKey = getAmsterdamMonthKey();
       await redis.del(`vincere-deals-scan-${monthKey}`);
       await redis.del('celebrations');
       await redis.del('vincere-deals-snapshot');

@@ -1,3 +1,5 @@
+import { getAmsterdamMonthStart, getAmsterdamMonthKey } from '../config/timezone.js';
+
 // Token persistence: uses Upstash Redis on Vercel, falls back to filesystem locally
 let redis = null;
 let fs = null;
@@ -343,10 +345,9 @@ class VincereService {
   async getAllTeamDeals(teamMembers) {
     const store = await getRedis();
 
-    // Month-specific scan key so it auto-resets each month
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    // Month-specific scan key using Amsterdam timezone so it resets correctly
+    const monthStart = getAmsterdamMonthStart();
+    const monthKey = getAmsterdamMonthKey();
     const KV_SCAN_KEY = `vincere-deals-scan-${monthKey}`;
 
     // Load existing scan state from KV
@@ -524,8 +525,7 @@ class VincereService {
 
   // Search Vincere deals for pipeline value (uses /deal/search endpoint)
   async getDealStats(teamMembers) {
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthStart = getAmsterdamMonthStart();
     const stats = {};
     for (const m of teamMembers) {
       stats[m.vincereId] = { dealCount: 0, pipelineValue: 0, wonValue: 0 };

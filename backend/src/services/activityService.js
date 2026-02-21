@@ -8,6 +8,7 @@ import {
   ACTIVITY_NAME_POINTS,
   DEFAULT_ACTIVITY_POINTS,
 } from '../config/goals.js';
+import { getAmsterdamMonthStart, getAmsterdamNow } from '../config/timezone.js';
 
 let redis = null;
 
@@ -254,7 +255,7 @@ class ActivityService {
     return grouped;
   }
 
-  // Fetch and aggregate activities for ALL team members (current month)
+  // Fetch and aggregate activities for ALL team members (current month, Amsterdam timezone)
   async getAllTeamActivities() {
     const store = await getRedis();
 
@@ -274,12 +275,13 @@ class ActivityService {
       }
     }
 
+    // Use Amsterdam timezone for month boundaries
     const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfMonth = getAmsterdamMonthStart();
     const startDate = startOfMonth.toISOString();
     const endDate = now.toISOString();
 
-    console.log(`[Activities] Querying date range: ${startDate} to ${endDate}`);
+    console.log(`[Activities] Querying date range: ${startDate} to ${endDate} (Amsterdam month)`);
 
     // Fetch all activities globally, then group by user
     const allActivities = await this._fetchAllActivities(startDate, endDate);

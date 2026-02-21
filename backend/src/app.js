@@ -8,6 +8,7 @@ import historyRoutes from './routes/history.js';
 import leagueRoutes from './routes/leagues.js';
 import missionRoutes from './routes/missions.js';
 import vincereService from './services/vincere.js';
+import { getAmsterdamMonthKey } from './config/timezone.js';
 
 dotenv.config();
 
@@ -175,8 +176,7 @@ app.get('/api/debug/placements', async (req, res) => {
       if (process.env.KV_REST_API_URL) {
         const { Redis } = await import('@upstash/redis');
         const redis = new Redis({ url: process.env.KV_REST_API_URL, token: process.env.KV_REST_API_TOKEN });
-        const now2 = new Date();
-        const monthKey = `${now2.getFullYear()}-${String(now2.getMonth() + 1).padStart(2, '0')}`;
+        const monthKey = getAmsterdamMonthKey();
         const raw = await redis.get(`vincere-deals-scan-${monthKey}`);
         if (raw) {
           const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;

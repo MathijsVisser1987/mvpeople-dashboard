@@ -1,3 +1,5 @@
+import { getAmsterdamNow } from './timezone.js';
+
 // Team member mappings: Vincere IDs + 8x8 Extensions
 export const teamMembers = [
   {
@@ -96,8 +98,8 @@ export const SALESDAG_ACTIVITY_NAMES = new Set([
 ]);
 
 export function isSalesdag() {
-  const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Amsterdam' }));
-  return now.getDay() === 4; // Thursday
+  const { dayOfWeek } = getAmsterdamNow();
+  return dayOfWeek === 4; // Thursday
 }
 
 // Points system — single source of truth for XP values

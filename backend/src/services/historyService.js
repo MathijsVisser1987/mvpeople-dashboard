@@ -2,6 +2,8 @@
 // Keys: history:YYYY-MM-DD → { leaderboard, teamStats, timestamp }
 // Index: history:index → [date1, date2, ...] (sorted desc, max 90 days)
 
+import { getAmsterdamNow } from '../config/timezone.js';
+
 let redis = null;
 
 async function getRedis() {
@@ -28,7 +30,8 @@ class HistoryService {
     const store = await getRedis();
     if (!store || !leaderboardData) return null;
 
-    const today = new Date().toISOString().split('T')[0];
+    const { year, month, day } = getAmsterdamNow();
+    const today = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const key = `history:${today}`;
 
     // Slim down leaderboard entries to just the stats we need
