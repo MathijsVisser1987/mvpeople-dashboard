@@ -120,7 +120,7 @@ export default function TVSlideshow() {
 
   return (
     <div className="fixed inset-0 w-screen h-screen bg-mvp-dark overflow-hidden flex flex-col">
-      <TVHeader currentSlide={currentSlide} totalSlides={slides.length} />
+      <TVHeader currentSlide={currentSlide} totalSlides={slides.length} apiStatus={data?.apiStatus} />
 
       <div className="flex-1 relative min-h-0">
         <AnimatePresence mode="wait">

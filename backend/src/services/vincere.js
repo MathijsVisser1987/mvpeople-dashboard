@@ -410,9 +410,9 @@ class VincereService {
           break;
         }
 
-        // Fetch a page of job IDs
+        // Fetch a page of job IDs (newest first — recent placements found faster)
         const data = await this._apiGet(
-          '/job/search/fl=id;sort=created_date asc',
+          '/job/search/fl=id;sort=created_date desc',
           { start: nextStart }
         );
         const items = data?.result?.items || [];

@@ -144,9 +144,9 @@ app.get('/api/debug/placements', async (req, res) => {
       if (m.email) emailToName[m.email.toLowerCase()] = m.shortName;
     }
 
-    // Check a small set of oldest jobs (most likely to have placements)
+    // Check a small set of newest jobs (most likely to have recent placements)
     const data = await vincereService._apiGet(
-      '/job/search/fl=id;sort=created_date asc',
+      '/job/search/fl=id;sort=created_date desc',
       { start: 0 }
     );
     const jobIds = (data?.result?.items || []).map(j => j.id);

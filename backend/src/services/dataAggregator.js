@@ -102,18 +102,22 @@ async function getDealStats() {
     console.error('[Aggregator] Vincere fetch error:', err.message);
   }
 
-  // Supplement pipeline value from /deal/search if placement scan didn't yield values
+  // Supplement with /deal/search: both pipeline values AND deal counts
   try {
     const dealSearchStats = await vincereService.getDealStats(teamMembers);
     for (const m of teamMembers) {
       const dealData = dealSearchStats[m.vincereId];
-      if (dealData && dealData.pipelineValue > 0) {
+      if (dealData) {
         if (!stats[m.vincereId]) {
           stats[m.vincereId] = { deals: 0, activePlacements: 0, pipelineValue: 0 };
         }
         // Use deal search pipeline value if placement scan didn't find any
-        if (!stats[m.vincereId].pipelineValue) {
+        if (!stats[m.vincereId].pipelineValue && dealData.pipelineValue > 0) {
           stats[m.vincereId].pipelineValue = dealData.pipelineValue;
+        }
+        // Use deal search count as additional deal source
+        if (dealData.dealCount > 0) {
+          stats[m.vincereId].dealSearchCount = dealData.dealCount;
         }
       }
     }
@@ -177,15 +181,16 @@ export async function buildLeaderboard() {
     const callsToday = todayCalls.callsMade || todayCalls.externalCallsMade || 0;
     const talkTimeToday = todayCalls.totalTalkTimeMinutes || 0;
 
-    // Deal counting: use MAX of placement scan and activity-based count
-    // Activity-based is fast & reliable; scan is slow but has renewal filtering
+    // Deal counting: use MAX of three sources (placement scan, activity-based, deal search)
+    // Activity-based is fast & reliable; scan has renewal filtering; deal search is direct
     const scanDeals = deals.deals || 0;
+    const dealSearchDeals = deals.dealSearchCount || 0;
     const activityDeals =
       (activities.byActivityName?.PLACEMENT_PERMANENT || 0) +
       (activities.byActivityName?.PLACEMENT_CONTRACT || 0);
-    const dealsCount = Math.max(scanDeals, activityDeals);
-    if (activityDeals > 0 && scanDeals !== activityDeals) {
-      console.log(`[Aggregator] ${member.shortName} deal count: scan=${scanDeals}, activities=${activityDeals}, using=${dealsCount}`);
+    const dealsCount = Math.max(scanDeals, activityDeals, dealSearchDeals);
+    if (scanDeals !== activityDeals || dealSearchDeals > 0) {
+      console.log(`[Aggregator] ${member.shortName} deal count: scan=${scanDeals}, activities=${activityDeals}, dealSearch=${dealSearchDeals}, using=${dealsCount}`);
     }
     const pipelineValue = deals.pipelineValue || 0;
 
@@ -288,6 +293,7 @@ export async function buildLeaderboard() {
     apiStatus: {
       vincere: await vincereService.isAuthenticated(),
       eightByEight: eightByEightService.isAuthenticated(),
+      dealScanComplete: scanComplete,
     },
     lastUpdated: new Date().toISOString(),
   };
