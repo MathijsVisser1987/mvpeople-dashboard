@@ -403,7 +403,7 @@ class VincereService {
     }
 
     const startTime = Date.now();
-    const MAX_DURATION_MS = 20000; // Stop after 20s to leave room for response
+    const MAX_DURATION_MS = 10000; // Stop after 10s — deal search provides fast results, scan fills in details progressively
 
     try {
       // Fetch job pages and check placements until time runs out

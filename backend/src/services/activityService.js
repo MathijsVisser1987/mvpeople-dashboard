@@ -211,7 +211,7 @@ class ActivityService {
     let page = 0;
     const maxPages = 100; // Safety limit — allow up to 2000 activities (20/page)
     const startTime = Date.now();
-    const MAX_DURATION_MS = 25000; // 25s — leave time for deal scan within Vercel's 60s limit
+    const MAX_DURATION_MS = 20000; // 20s — leave time for deal scan + deal search within Vercel's 60s limit
 
     try {
       while (page < maxPages) {

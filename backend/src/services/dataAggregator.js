@@ -31,7 +31,7 @@ async function loadTargetOverrides() {
 let cache = {
   leaderboard: null,
   lastFetch: null,
-  ttl: 5 * 60 * 1000, // 5 minute cache — reduces cold fetches while still progressing deal scan
+  ttl: 2 * 60 * 1000, // 2 minute cache — keeps deal scan progressing
 };
 let backgroundRefreshInProgress = false;
 
@@ -78,56 +78,57 @@ async function getTodayCallStats() {
   return stats;
 }
 
-// Get placement/deal stats from Vincere
-// Strategy: fetch all jobs, group by created_by.id, check placements per job
-// Also tries /deal/search for pipeline values
-async function getDealStats() {
-  const stats = {};
-  let scanComplete = false;
-
-  if (!(await vincereService.isAuthenticated())) {
-    console.log('[Aggregator] Vincere not authenticated, returning empty deal stats');
-    return { stats, scanComplete };
+// Fast deal search via /deal/search endpoint (a few pages, quick)
+async function getDealSearchStats() {
+  if (!(await vincereService.isAuthenticated())) return {};
+  try {
+    return await vincereService.getDealStats(teamMembers);
+  } catch (err) {
+    console.log('[Aggregator] Deal search error:', err.message);
+    return {};
   }
+}
 
+// Heavy placement scan (800+ jobs, progressive, 20s timeout)
+async function getDealScanStats() {
+  if (!(await vincereService.isAuthenticated())) {
+    console.log('[Aggregator] Vincere not authenticated, skipping deal scan');
+    return { stats: {}, scanComplete: false };
+  }
   try {
     const result = await vincereService.getAllTeamDeals(teamMembers);
-    // result is { stats: {...}, scanComplete: bool }
+    const stats = {};
     const resultStats = result?.stats || result || {};
-    scanComplete = result?.scanComplete || false;
     for (const [vincereId, data] of Object.entries(resultStats)) {
       if (data && typeof data === 'object' && 'deals' in data) {
         stats[vincereId] = data;
       }
     }
+    return { stats, scanComplete: result?.scanComplete || false };
   } catch (err) {
-    console.error('[Aggregator] Vincere fetch error:', err.message);
+    console.error('[Aggregator] Deal scan error:', err.message);
+    return { stats: {}, scanComplete: false };
   }
+}
 
-  // Supplement with /deal/search: both deal count and pipeline value
-  try {
-    const dealSearchStats = await vincereService.getDealStats(teamMembers);
-    for (const m of teamMembers) {
-      const dealData = dealSearchStats[m.vincereId];
-      if (!dealData) continue;
-      if (!stats[m.vincereId]) {
-        stats[m.vincereId] = { deals: 0, activePlacements: 0, pipelineValue: 0 };
-      }
-      // Use deal search count if it found more deals than placement scan
-      if (dealData.dealCount > (stats[m.vincereId].deals || 0)) {
-        console.log(`[Aggregator] ${m.shortName}: deal search found ${dealData.dealCount} deals vs scan ${stats[m.vincereId].deals}`);
-        stats[m.vincereId].deals = dealData.dealCount;
-      }
-      // Use deal search pipeline value if placement scan didn't find any
-      if (dealData.pipelineValue > 0 && !stats[m.vincereId].pipelineValue) {
-        stats[m.vincereId].pipelineValue = dealData.pipelineValue;
-      }
+// Merge deal search + scan results: take the higher deal count from either source
+function mergeDealStats(dealSearchStats, dealScanResult) {
+  const stats = { ...dealScanResult.stats };
+  for (const m of teamMembers) {
+    const searchData = dealSearchStats[m.vincereId];
+    if (!searchData) continue;
+    if (!stats[m.vincereId]) {
+      stats[m.vincereId] = { deals: 0, activePlacements: 0, pipelineValue: 0 };
     }
-  } catch (err) {
-    console.log('[Aggregator] Deal search supplemental error:', err.message);
+    if (searchData.dealCount > (stats[m.vincereId].deals || 0)) {
+      console.log(`[Aggregator] ${m.shortName}: deal search found ${searchData.dealCount} deals vs scan ${stats[m.vincereId].deals}`);
+      stats[m.vincereId].deals = searchData.dealCount;
+    }
+    if (searchData.pipelineValue > 0 && !stats[m.vincereId].pipelineValue) {
+      stats[m.vincereId].pipelineValue = searchData.pipelineValue;
+    }
   }
-
-  return { stats, scanComplete };
+  return { stats, scanComplete: dealScanResult.scanComplete };
 }
 
 // Get activity stats from Vincere for all team members
@@ -166,18 +167,22 @@ export async function buildLeaderboard() {
 
 async function _refreshLeaderboard() {
 
-  // Fetch all data sources concurrently — deal scan uses different Vincere endpoints
-  // than activities (/job/search + /placement vs /activity/search) and has its own
-  // internal rate limiting (batches of 3 with 200ms delays), so parallel is safe.
-  const [callStats, todayCallStats, activityStats, targetOverrides, dealResult] = await Promise.all([
+  // Phase 1: Fetch fast data sources concurrently
+  // Deal search (/deal/search) is fast (a few pages) and safe to run alongside activities.
+  // The heavy placement scan runs AFTER activities to avoid Vincere 429 rate limits.
+  const [callStats, todayCallStats, activityStats, targetOverrides, dealSearchStats] = await Promise.all([
     getCallStats(),
     getTodayCallStats(),
     getActivityStats(),
     loadTargetOverrides(),
-    getDealStats(),
+    getDealSearchStats(),
   ]);
-  const dealStats = dealResult.stats;
-  const scanComplete = dealResult.scanComplete;
+
+  // Phase 2: Heavy placement scan — sequential after activities to avoid 429s
+  const dealScanResult = await getDealScanStats();
+
+  // Merge: take the higher deal count from either source
+  const { stats: dealStats, scanComplete } = mergeDealStats(dealSearchStats, dealScanResult);
 
   // Detect new deals and create celebrations (only when scan is complete)
   try {
