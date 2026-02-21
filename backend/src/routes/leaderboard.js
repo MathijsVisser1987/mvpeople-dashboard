@@ -54,6 +54,30 @@ router.get('/activities', async (req, res) => {
   }
 });
 
+// GET /api/leaderboard/kpi-debug - Show raw activity_name counts per member for KPI debugging
+router.get('/kpi-debug', async (req, res) => {
+  try {
+    const data = await buildLeaderboard();
+    const debug = (data.leaderboard || []).map(m => ({
+      name: m.name,
+      vincereId: m.vincereId,
+      targetProfile: m.targetProfile,
+      totalActivities: m.totalActivities,
+      activityNames: m.activityNames || {},
+      kpis: (m.kpis || []).map(k => ({
+        key: k.key,
+        label: k.label,
+        actual: k.actual,
+        proRated: k.proRated,
+        target: k.target,
+      })),
+    }));
+    res.json({ members: debug, lastUpdated: data.lastUpdated });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // POST /api/leaderboard/refresh - Force refresh cached data (including Vincere deal cache)
 router.post('/refresh', async (req, res) => {
   clearCache();

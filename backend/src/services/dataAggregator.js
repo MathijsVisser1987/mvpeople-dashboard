@@ -232,6 +232,7 @@ export async function buildLeaderboard() {
       activityPoints: activityPointsNet,
       totalActivities: activities.totalActivities || 0,
       activityTypes: activities.byType || {},
+      activityNames: activities.byActivityName || {},
       kpis: kpiStatus,
       // Headhunt Challenge for starters: 60 Headhunt Completed = €500 bonus
       headhuntChallenge: member.targetProfile === 'starter' ? {

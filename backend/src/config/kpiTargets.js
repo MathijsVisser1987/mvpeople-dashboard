@@ -1,3 +1,5 @@
+import { getAmsterdamNow } from './timezone.js';
+
 // KPI Target profiles for MVPeople team members
 // Each KPI maps to one or more Vincere activity_name values
 // "Deals" KPI uses placement count, not activity_name
@@ -169,10 +171,10 @@ export function calculateKPIStatus(profileId, actuals, targetOverrides) {
   // Merge profile defaults with any individual overrides
   const mergedTargets = { ...profile.targets, ...(targetOverrides?.overrides || {}) };
 
-  // Pro-rate targets based on day of month
-  const now = new Date();
-  const dayOfMonth = now.getDate();
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  // Pro-rate targets based on day of month (Amsterdam timezone)
+  const ams = getAmsterdamNow();
+  const dayOfMonth = ams.day;
+  const daysInMonth = new Date(ams.year, ams.month + 1, 0).getDate();
   const monthProgress = dayOfMonth / daysInMonth;
 
   const kpis = [];

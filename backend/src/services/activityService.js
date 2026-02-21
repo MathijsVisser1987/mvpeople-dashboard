@@ -195,21 +195,20 @@ class ActivityService {
   async _fetchAllActivities(startDate, endDate) {
     const allActivities = [];
     let page = 0;
-    const maxPages = 50; // Safety limit
+    const maxPages = 100; // Safety limit — allow up to 2000 activities (20/page)
     const startTime = Date.now();
-    const MAX_DURATION_MS = 25000; // 25s time limit
+    const MAX_DURATION_MS = 40000; // 40s time limit — ensure we get all data
 
     try {
       while (page < maxPages) {
         if (Date.now() - startTime > MAX_DURATION_MS) {
-          console.log(`[Activities] Time limit reached at page ${page}, returning partial results`);
+          console.log(`[Activities] Time limit reached at page ${page} (${allActivities.length} activities), returning partial results`);
           break;
         }
 
         const data = await vincereService.getActivities(startDate, endDate, page);
 
         let items = [];
-        let total = 0;
 
         // Vincere uses Spring Data pagination: { content: [...], slice_index, num_of_elements, last }
         if (data?.content) {
@@ -224,14 +223,17 @@ class ActivityService {
 
         // Check if this is the last page
         const isLast = data?.last === true;
-        if (items.length === 0 || isLast) break;
+        if (items.length === 0 || isLast) {
+          console.log(`[Activities] All pages fetched: ${page + 1} pages, complete=${isLast}`);
+          break;
+        }
         page++;
       }
     } catch (err) {
-      console.error('[Activities] Fetch error:', err.message);
+      console.error('[Activities] Fetch error at page', page, ':', err.message);
     }
 
-    console.log(`[Activities] Fetched ${allActivities.length} total activities in ${Date.now() - startTime}ms`);
+    console.log(`[Activities] Fetched ${allActivities.length} total activities in ${Date.now() - startTime}ms (${page + 1} pages)`);
     return allActivities;
   }
 
