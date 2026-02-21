@@ -111,10 +111,10 @@ export const TARGET_PROFILES = {
     label: 'Starter',
     // Which KPIs are tracked and their monthly targets
     targets: {
-      candidateCalls: 700,
-      headhuntCallMeeting: 150,
-      callBackPlanned: 150,
-      headhuntCompleted: 100,
+      candidateCalls: 500,
+      headhuntCallMeeting: 100,
+      callBackPlanned: 100,
+      headhuntCompleted: 60,
       linkedInMessage: 100,
       jobs: 5,
       jobLead: 3,
