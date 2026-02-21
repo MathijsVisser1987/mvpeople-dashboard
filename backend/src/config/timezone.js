@@ -57,7 +57,7 @@ export function getAmsterdamMonthKey() {
 
 // Convert a local Amsterdam datetime string (without TZ) to a UTC Date object
 // Input: "2026-02-01T00:00:00" → Date object representing that moment in Amsterdam
-function dateInAmsterdam(localDateStr) {
+export function dateInAmsterdam(localDateStr) {
   // Create a temporary date to figure out the Amsterdam UTC offset at that time
   // We use a two-step approach because DST offset depends on the date itself
   const rough = new Date(localDateStr + 'Z'); // treat as UTC temporarily

@@ -8,7 +8,7 @@ import historyRoutes from './routes/history.js';
 import leagueRoutes from './routes/leagues.js';
 import missionRoutes from './routes/missions.js';
 import vincereService from './services/vincere.js';
-import { getAmsterdamMonthKey } from './config/timezone.js';
+import { getAmsterdamMonthKey, getAmsterdamMonthStart } from './config/timezone.js';
 
 dotenv.config();
 
@@ -310,8 +310,7 @@ app.get('/api/debug/activities/:userId', async (req, res) => {
 
     const userId = parseInt(req.params.userId);
     const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    // Full ISO datetime format (the API rejected date-only strings)
+    const startOfMonth = getAmsterdamMonthStart();
     const startISO = startOfMonth.toISOString();
     const endISO = now.toISOString();
 
@@ -605,7 +604,7 @@ app.get('/api/debug/activity-types', async (req, res) => {
     // 3. POST /activities — 1 page only, current month
     try {
       const now = new Date();
-      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      const start = getAmsterdamMonthStart();
       const data = await vincereService._apiPost('/activities', {
         created_date_from: start.toISOString(),
         created_date_to: now.toISOString(),

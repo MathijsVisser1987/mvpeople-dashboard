@@ -8,7 +8,7 @@ import {
   ACTIVITY_NAME_POINTS,
   DEFAULT_ACTIVITY_POINTS,
 } from '../config/goals.js';
-import { getAmsterdamMonthStart, getAmsterdamNow } from '../config/timezone.js';
+import { getAmsterdamMonthStart, getAmsterdamNow, formatAmsterdamISO } from '../config/timezone.js';
 
 let redis = null;
 
@@ -81,14 +81,30 @@ class ActivityService {
     CV_SENT_TO_CLIENT: 'CV Sent',
   };
 
-  // Check if a date string falls on a Thursday (Europe/Amsterdam timezone)
-  _isThursday(dateStr) {
-    if (!dateStr) return false;
+  // Get the day of week (0=Sun..6=Sat) for a date string in Amsterdam timezone
+  _getAmsterdamDayOfWeek(dateStr) {
+    if (!dateStr) return null;
     try {
       const d = new Date(dateStr);
-      const amsterdam = new Date(d.toLocaleString('en-US', { timeZone: 'Europe/Amsterdam' }));
-      return amsterdam.getDay() === 4;
-    } catch { return false; }
+      const weekday = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Europe/Amsterdam',
+        weekday: 'short',
+      }).format(d);
+      return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(weekday);
+    } catch { return null; }
+  }
+
+  // Get "YYYY-MM-DD" for a date in Amsterdam timezone (for same-day comparison)
+  _getAmsterdamDateStr(date) {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Europe/Amsterdam',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+    }).format(date);
+  }
+
+  // Check if a date string falls on a Thursday (Europe/Amsterdam timezone)
+  _isThursday(dateStr) {
+    return this._getAmsterdamDayOfWeek(dateStr) === 4;
   }
 
   // Aggregate activities for a single user
@@ -135,11 +151,9 @@ class ActivityService {
         points *= SALESDAG_MULTIPLIER;
 
         // Track today's salesdag stats
-        const now = new Date();
-        const todayAmsterdam = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Amsterdam' }));
-        const actDate = new Date(new Date(activityDate).toLocaleString('en-US', { timeZone: 'Europe/Amsterdam' }));
-        if (todayAmsterdam.getDay() === 4 &&
-            actDate.toDateString() === todayAmsterdam.toDateString()) {
+        const ams = getAmsterdamNow();
+        if (ams.dayOfWeek === 4 &&
+            this._getAmsterdamDateStr(new Date(activityDate)) === this._getAmsterdamDateStr(new Date())) {
           result.salesdagToday.salesCalls++;
           result.salesdagToday.doubleXP += bonus;
         }
@@ -289,7 +303,7 @@ class ActivityService {
     const allActivities = await this._fetchAllActivities(startDate, endDate);
 
     if (allActivities.length === 0) {
-      console.log(`[Activities] No activities found for current month (${startOfMonth.toLocaleDateString()} - ${now.toLocaleDateString()}). This may be normal if no Vincere activities were logged this month.`);
+      console.log(`[Activities] No activities found for current month (${formatAmsterdamISO(startOfMonth)} - ${formatAmsterdamISO(now)}). This may be normal if no Vincere activities were logged this month.`);
     }
     const grouped = this._groupByUser(allActivities);
 

@@ -1,7 +1,7 @@
 // League system: weekly and monthly competitions
 // Leagues are computed from current leaderboard data + historical snapshots
 
-import { getAmsterdamNow } from '../config/timezone.js';
+import { getAmsterdamNow, dateInAmsterdam } from '../config/timezone.js';
 
 const LEAGUE_DEFINITIONS = [
   {
@@ -66,10 +66,16 @@ class LeagueService {
       if (league.period === 'week') {
         // End of current week (Sunday 23:59:59 Amsterdam time)
         const daysUntilSunday = ams.dayOfWeek === 0 ? 0 : 7 - ams.dayOfWeek;
-        endDate = new Date(ams.year, ams.month, ams.day + daysUntilSunday, 23, 59, 59);
+        const endDay = ams.day + daysUntilSunday;
+        const m = String(ams.month + 1).padStart(2, '0');
+        const d = String(endDay).padStart(2, '0');
+        endDate = dateInAmsterdam(`${ams.year}-${m}-${d}T23:59:59`);
       } else {
-        // End of current month (Amsterdam time)
-        endDate = new Date(ams.year, ams.month + 1, 0, 23, 59, 59);
+        // End of current month (last day 23:59:59 Amsterdam time)
+        const lastDay = new Date(ams.year, ams.month + 1, 0).getDate();
+        const m = String(ams.month + 1).padStart(2, '0');
+        const d = String(lastDay).padStart(2, '0');
+        endDate = dateInAmsterdam(`${ams.year}-${m}-${d}T23:59:59`);
       }
 
       return {
