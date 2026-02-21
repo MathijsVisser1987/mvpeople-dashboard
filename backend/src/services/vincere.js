@@ -348,7 +348,7 @@ class VincereService {
     // Month-specific scan key using Amsterdam timezone so it resets correctly
     const monthStart = getAmsterdamMonthStart();
     const monthKey = getAmsterdamMonthKey();
-    const KV_SCAN_KEY = `vincere-deals-scan-v2-${monthKey}`;
+    const KV_SCAN_KEY = `vincere-deals-scan-v3-${monthKey}`;
 
     // Load existing scan state from KV
     let scanState = null;
@@ -370,10 +370,12 @@ class VincereService {
       return { stats: scanState.stats, scanComplete: true };
     }
 
-    // Build email → vincereId lookup
+    // Build email → vincereId lookup + vincereId set for ID-based matching
     const emailToId = {};
+    const vincereIdSet = new Set();
     for (const m of teamMembers) {
       if (m.email) emailToId[m.email.toLowerCase()] = m.vincereId;
+      vincereIdSet.add(m.vincereId);
     }
 
     // Initialize or continue scan
@@ -463,8 +465,27 @@ class VincereService {
                 }
                 if (appId) seenAppIds.add(appId);
 
+                // Match placement to team member: try email first, then ID fields
                 const placedByEmail = (placement.placed_by || '').toLowerCase();
-                const vincereId = emailToId[placedByEmail];
+                let vincereId = emailToId[placedByEmail];
+                if (!vincereId) {
+                  // Fallback: match by numeric ID fields (placed_by_id, owner_id, consultant_id, user_id)
+                  const candidateIds = [
+                    placement.placed_by_id,
+                    placement.owner_id,
+                    placement.consultant_id,
+                    placement.user_id,
+                    placement.created_by_id,
+                  ].filter(Boolean);
+                  for (const cid of candidateIds) {
+                    const numId = typeof cid === 'number' ? cid : parseInt(cid, 10);
+                    if (vincereIdSet.has(numId)) {
+                      vincereId = numId;
+                      console.log(`[Vincere] Placement matched by ID ${numId} (email '${placedByEmail}' unmatched)`);
+                      break;
+                    }
+                  }
+                }
                 if (vincereId && stats[vincereId]) {
                   stats[vincereId].deals++;
                   if (placement.status !== 'terminated' && placement.status !== 'cancelled') {
