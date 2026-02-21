@@ -2,10 +2,33 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { leaderboardData as mockLeaderboard, teamStats as mockTeamStats } from '../data/mockData';
 
 const API_BASE = '/api';
+const CACHE_KEY = 'mvp-leaderboard-cache';
+
+// Load cached data from localStorage for instant initial render
+function loadCachedData() {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (raw) {
+      const cached = JSON.parse(raw);
+      // Use cache if less than 30 minutes old
+      if (cached.timestamp && Date.now() - cached.timestamp < 30 * 60 * 1000) {
+        return cached.data;
+      }
+    }
+  } catch {}
+  return null;
+}
+
+function saveCachedData(data) {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ data, timestamp: Date.now() }));
+  } catch {}
+}
 
 export function useLeaderboard() {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const cached = useRef(loadCachedData());
+  const [data, setData] = useState(cached.current);
+  const [loading, setLoading] = useState(!cached.current);
   const [error, setError] = useState(null);
   const [usingMock, setUsingMock] = useState(false);
   const retryCount = useRef(0);
@@ -26,6 +49,7 @@ export function useLeaderboard() {
       if (hasRealData) {
         setData(json);
         setUsingMock(false);
+        saveCachedData(json);
       } else {
         // API connected but no data sources authenticated yet — use mock
         setData({
@@ -77,6 +101,7 @@ export function useLeaderboard() {
         setData(json);
         setUsingMock(false);
         setError(null);
+        saveCachedData(json);
         lastSuccessfulFetch.current = Date.now();
       } else {
         setError(`Refresh failed: ${res.status}`);

@@ -8,6 +8,10 @@ export default function Avatar({ member, size = 'w-12 h-12', textSize = 'text-lg
       <img
         src={member.photo}
         alt={member.name}
+        loading="lazy"
+        decoding="async"
+        width="48"
+        height="48"
         onError={() => setImgError(true)}
         className={`${size} rounded-full object-cover shrink-0`}
         style={{ border: `${borderWidth} solid ${member.color}40` }}

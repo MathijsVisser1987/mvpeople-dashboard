@@ -148,7 +148,7 @@ export default function Challenge({ members }) {
 
       {/* Lunchclub sfeer foto */}
       <div className="mt-4 rounded-xl overflow-hidden" style={{ height: '160px' }}>
-        <img src="/Lunchclub.png" alt="Lunchclub" className="w-full object-cover rounded-xl opacity-80" style={{ height: '160px' }} />
+        <img src="/Lunchclub.webp" alt="Lunchclub" className="w-full object-cover rounded-xl opacity-80" style={{ height: '160px' }} />
       </div>
     </div>
   );

@@ -1,25 +1,34 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import { useLeaderboard } from './hooks/useLeaderboard';
 import { useWidgetConfig } from './hooks/useWidgetConfig';
 import Header from './components/Header';
 import TeamStats from './components/TeamStats';
 import Leaderboard from './components/Leaderboard';
-import Challenge from './components/Challenge';
-import BadgeShowcase from './components/BadgeShowcase';
-import ActivityFeed from './components/ActivityFeed';
-import PointsBreakdown from './components/PointsBreakdown';
-import ApiStatus from './components/ApiStatus';
-import RecentWins from './components/RecentWins';
-import LeaguesWidget from './components/LeaguesWidget';
-import MissionsWidget from './components/MissionsWidget';
-import TrendChartsWidget from './components/TrendChartsWidget';
-import ActivityBreakdown from './components/ActivityBreakdown';
 import KPITargets from './components/KPITargets';
-import MVPOfYear from './components/MVPOfYear';
 import SettingsPanel from './components/SettingsPanel';
-import TVSlideshow from './pages/TVSlideshow';
-import Reports from './pages/Reports';
 import { useYTD } from './hooks/useYTD';
+
+// Lazy-load heavy/below-fold components (only loaded when visible)
+const Challenge = lazy(() => import('./components/Challenge'));
+const BadgeShowcase = lazy(() => import('./components/BadgeShowcase'));
+const ActivityFeed = lazy(() => import('./components/ActivityFeed'));
+const PointsBreakdown = lazy(() => import('./components/PointsBreakdown'));
+const ApiStatus = lazy(() => import('./components/ApiStatus'));
+const RecentWins = lazy(() => import('./components/RecentWins'));
+const LeaguesWidget = lazy(() => import('./components/LeaguesWidget'));
+const MissionsWidget = lazy(() => import('./components/MissionsWidget'));
+const TrendChartsWidget = lazy(() => import('./components/TrendChartsWidget'));
+const ActivityBreakdown = lazy(() => import('./components/ActivityBreakdown'));
+const MVPOfYear = lazy(() => import('./components/MVPOfYear'));
+
+// Lazy-load route pages (never needed on initial dashboard load)
+const TVSlideshow = lazy(() => import('./pages/TVSlideshow'));
+const Reports = lazy(() => import('./pages/Reports'));
+
+function LazyWrap({ children }) {
+  return <Suspense fallback={null}>{children}</Suspense>;
+}
 
 function Dashboard() {
   const { data, loading, usingMock, refresh } = useLeaderboard();
@@ -61,21 +70,21 @@ function Dashboard() {
             {isVisible('kpiTargets') && (
               <KPITargets members={leaderboard} />
             )}
-            {isVisible('leagues') && <LeaguesWidget />}
-            {isVisible('activityBreakdown') && <ActivityBreakdown members={leaderboard} />}
-            {isVisible('trendCharts') && <TrendChartsWidget />}
-            {isVisible('badges') && <BadgeShowcase members={leaderboard} />}
+            {isVisible('leagues') && <LazyWrap><LeaguesWidget /></LazyWrap>}
+            {isVisible('activityBreakdown') && <LazyWrap><ActivityBreakdown members={leaderboard} /></LazyWrap>}
+            {isVisible('trendCharts') && <LazyWrap><TrendChartsWidget /></LazyWrap>}
+            {isVisible('badges') && <LazyWrap><BadgeShowcase members={leaderboard} /></LazyWrap>}
           </div>
 
           {/* Right column - 1/3 */}
           <div className="space-y-6">
-            {isVisible('mvpOfYear') && <MVPOfYear standings={ytdStandings} />}
-            {isVisible('missions') && <MissionsWidget />}
-            {isVisible('challenge') && <Challenge members={leaderboard} />}
-            {isVisible('recentWins') && <RecentWins celebrations={celebrations} />}
-            {isVisible('pointsBreakdown') && <PointsBreakdown xpRules={data?.xpRules} isSalesdag={data?.isSalesdag} />}
-            {isVisible('activityFeed') && <ActivityFeed members={leaderboard} />}
-            {isVisible('apiStatus') && <ApiStatus usingMock={usingMock} />}
+            {isVisible('mvpOfYear') && <LazyWrap><MVPOfYear standings={ytdStandings} /></LazyWrap>}
+            {isVisible('missions') && <LazyWrap><MissionsWidget /></LazyWrap>}
+            {isVisible('challenge') && <LazyWrap><Challenge members={leaderboard} /></LazyWrap>}
+            {isVisible('recentWins') && <LazyWrap><RecentWins celebrations={celebrations} /></LazyWrap>}
+            {isVisible('pointsBreakdown') && <LazyWrap><PointsBreakdown xpRules={data?.xpRules} isSalesdag={data?.isSalesdag} /></LazyWrap>}
+            {isVisible('activityFeed') && <LazyWrap><ActivityFeed members={leaderboard} /></LazyWrap>}
+            {isVisible('apiStatus') && <LazyWrap><ApiStatus usingMock={usingMock} /></LazyWrap>}
           </div>
         </div>
       </main>
@@ -94,8 +103,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Dashboard />} />
-      <Route path="/reports" element={<Reports />} />
-      <Route path="/tv" element={<TVSlideshow />} />
+      <Route path="/reports" element={<Suspense fallback={<div className="min-h-screen bg-mvp-dark flex items-center justify-center text-white/50">Loading...</div>}><Reports /></Suspense>} />
+      <Route path="/tv" element={<Suspense fallback={null}><TVSlideshow /></Suspense>} />
     </Routes>
   );
 }

@@ -33,6 +33,7 @@ let cache = {
   lastFetch: null,
   ttl: 2 * 60 * 1000, // 2 minute cache — keeps deal scan progressing
 };
+let backgroundRefreshInProgress = false;
 
 // Get call stats from 8x8 for all team members
 async function getCallStats() {
@@ -145,11 +146,25 @@ async function getActivityStats() {
 }
 
 // Build the full leaderboard
+// Uses stale-while-revalidate: returns stale cache instantly, refreshes in background
 export async function buildLeaderboard() {
-  // Check cache
+  // Fresh cache — return immediately
   if (cache.leaderboard && cache.lastFetch && Date.now() - cache.lastFetch < cache.ttl) {
     return cache.leaderboard;
   }
+
+  // Stale cache available — return it instantly and refresh in background
+  if (cache.leaderboard && cache.lastFetch && !backgroundRefreshInProgress) {
+    backgroundRefreshInProgress = true;
+    _refreshLeaderboard().finally(() => { backgroundRefreshInProgress = false; });
+    return cache.leaderboard;
+  }
+
+  // No cache at all (first request ever) — must wait for data
+  return _refreshLeaderboard();
+}
+
+async function _refreshLeaderboard() {
 
   // Fetch 8x8 calls (month + today) + Vincere activities + target overrides concurrently
   const [callStats, todayCallStats, activityStats, targetOverrides] = await Promise.all([
@@ -313,4 +328,5 @@ export async function buildLeaderboard() {
 export function clearCache() {
   cache.leaderboard = null;
   cache.lastFetch = null;
+  backgroundRefreshInProgress = false;
 }
