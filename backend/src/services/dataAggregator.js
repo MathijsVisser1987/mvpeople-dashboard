@@ -31,7 +31,7 @@ async function loadTargetOverrides() {
 let cache = {
   leaderboard: null,
   lastFetch: null,
-  ttl: 2 * 60 * 1000, // 2 minute cache — keeps deal scan progressing
+  ttl: 5 * 60 * 1000, // 5 minute cache — reduces cold fetches while still progressing deal scan
 };
 let backgroundRefreshInProgress = false;
 
@@ -166,16 +166,16 @@ export async function buildLeaderboard() {
 
 async function _refreshLeaderboard() {
 
-  // Fetch 8x8 calls (month + today) + Vincere activities + target overrides concurrently
-  const [callStats, todayCallStats, activityStats, targetOverrides] = await Promise.all([
+  // Fetch all data sources concurrently — deal scan uses different Vincere endpoints
+  // than activities (/job/search + /placement vs /activity/search) and has its own
+  // internal rate limiting (batches of 3 with 200ms delays), so parallel is safe.
+  const [callStats, todayCallStats, activityStats, targetOverrides, dealResult] = await Promise.all([
     getCallStats(),
     getTodayCallStats(),
     getActivityStats(),
     loadTargetOverrides(),
+    getDealStats(),
   ]);
-
-  // Deal scan is heavy (800+ API calls) — run after activities to avoid 429s
-  const dealResult = await getDealStats();
   const dealStats = dealResult.stats;
   const scanComplete = dealResult.scanComplete;
 
